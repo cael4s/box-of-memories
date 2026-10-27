@@ -82,64 +82,50 @@
     <a-entity camera></a-entity>
   </a-scene>
 
-  <script>
-    const status = document.getElementById("status");
-    const scary = document.getElementById("scary");
+```html
+<script>
+  const scary = document.getElementById("scary");
+  const status = document.getElementById("status");
 
-    const TOPIC = "box-of-memories-urk123";
-    const bron = new EventSource(
-      "https://ntfy.sh/" + TOPIC + "/sse"
-    );
+  const TOPIC = "box-of-memories-urk123";
+  const bron = new EventSource(
+    "https://ntfy.sh/" + TOPIC + "/sse"
+  );
 
-    let verbergTimer;
+  let verbergTimer;
 
-    // AR.js-camera en markerstatus
-    window.addEventListener("load", function () {
-      const scene = document.querySelector("a-scene");
+  // ACCEPT en REMEMBER via ntfy
+  bron.onmessage = function (e) {
+    try {
+      const data = JSON.parse(e.data);
 
-      scene.addEventListener("loaded", function () {
-        status.textContent = "AR wordt gestart...";
-      });
+      if (data.event !== "message") return;
 
-      scene.addEventListener("arjs-nft-loaded", function () {
-        status.textContent = "Marker geladen!";
-        setTimeout(() => {
-          status.style.display = "none";
-        }, 2500);
-      });
-    });
+      if (data.message === "ACCEPT") {
+        clearTimeout(verbergTimer);
 
-    // ACCEPT en REMEMBER via ntfy
-    bron.onmessage = function (e) {
-      try {
-        const data = JSON.parse(e.data);
-
-        if (data.event !== "message") return;
-
-        if (data.message === "ACCEPT") {
-          clearTimeout(verbergTimer);
-
-          scary.setAttribute("visible", true);
-          scary.emit("fadein");
-        }
-
-        if (data.message === "REMEMBER") {
-          scary.emit("fadeout");
-
-          verbergTimer = setTimeout(function () {
-            scary.setAttribute("visible", false);
-          }, 1500);
-        }
-      } catch (err) {
-        status.style.display = "block";
-        status.textContent = "Fout: " + err.message;
+        scary.setAttribute("visible", true);
+        scary.emit("fadein");
       }
-    };
 
-    bron.onerror = function () {
+      if (data.message === "REMEMBER") {
+        scary.emit("fadeout");
+
+        verbergTimer = setTimeout(function () {
+          scary.setAttribute("visible", false);
+        }, 1500);
+      }
+    } catch (err) {
       status.style.display = "block";
-      status.textContent = "Verbinding met ntfy wordt hersteld...";
-    };
-  </script>
+      status.textContent = "Fout: " + err.message;
+    }
+  };
+
+  bron.onerror = function () {
+    status.style.display = "block";
+    status.textContent = "Verbinding met ntfy wordt hersteld...";
+  };
+</script>
+```
 </body>
 </html>
