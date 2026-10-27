@@ -108,137 +108,54 @@
 
   </a-scene>
 
-  <script>
-    const status = document.getElementById("status");
-    const loader = document.getElementById("loader");
-    const scary = document.getElementById("scary");
-    const marker = document.getElementById("memoryMarker");
 
-    // ===== ntfy-koppeling =====
-    const TOPIC = "box-of-memories-urk123";
+<script>
+  const status = document.getElementById("status");
+  const scary = document.getElementById("scary");
 
-    const bron = new EventSource(
-      "https://ntfy.sh/" + TOPIC + "/sse"
-    );
+  // ===== Arduino-koppeling via ntfy =====
+  const TOPIC = "box-of-memories-urk123";
 
-    let verbergTimer;
-    let afbeeldingAan = false;
+  const bron = new EventSource(
+    "https://ntfy.sh/" + TOPIC + "/sse"
+  );
 
-    // ===== AR-laadstatus =====
-    function toonStatus(tekst) {
-      status.textContent = tekst;
-      status.style.display = "block";
-    }
+  bron.onmessage = function (e) {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.event !== "message") return;
 
-    function verbergLaadscherm() {
-      loader.style.display = "none";
-    }
-
-    // AR.js geeft aan wanneer de NFT-markerbestanden geladen zijn.
-    window.addEventListener("arjs-nft-loaded", function () {
-      verbergLaadscherm();
-      toonStatus("Marker geladen! Richt op je foto.");
-
-      setTimeout(function () {
-        status.style.display = "none";
-      }, 3500);
-    });
-
-    // Marker gevonden
-    marker.addEventListener("markerFound", function () {
-      verbergLaadscherm();
-      toonStatus("Foto herkend!");
-
-      setTimeout(function () {
-        status.style.display = "none";
-      }, 2000);
-
-      if (afbeeldingAan) {
+      if (data.message === "ACCEPT") {
         scary.setAttribute("visible", true);
-        scary.setAttribute("material", "opacity", 1);
+        scary.setAttribute("animation", {
+          property: "material.opacity",
+          from: 0,
+          to: 1,
+          dur: 1500,
+          easing: "easeInOutQuad"
+        });
       }
-    });
 
-    // Marker uit beeld
-    marker.addEventListener("markerLost", function () {
-      // De gekozen ACCEPT-status blijft behouden.
-      // De afbeelding blijft aan de marker gekoppeld.
-    });
+      if (data.message === "REMEMBER") {
+        scary.setAttribute("animation", {
+          property: "material.opacity",
+          from: 1,
+          to: 0,
+          dur: 1500,
+          easing: "easeInOutQuad"
+        });
 
-    // Toon fouten als AR.js niet start
-    window.addEventListener("camera-init", function () {
-      verbergLaadscherm();
-      toonStatus("Camera gestart. Marker wordt geladen...");
-    });
-
-    window.addEventListener("camera-error", function () {
-      verbergLaadscherm();
-      toonStatus("Camera-fout. Controleer de cameratoestemming.");
-    });
-
-    // ===== ACCEPT en REMEMBER =====
-    function toonAfbeelding() {
-      clearTimeout(verbergTimer);
-      afbeeldingAan = true;
-
-      scary.setAttribute("visible", true);
-      scary.setAttribute("animation", {
-        property: "material.opacity",
-        from: 0,
-        to: 1,
-        dur: 1500,
-        easing: "easeInOutQuad"
-      });
-    }
-
-    function verbergAfbeelding() {
-      clearTimeout(verbergTimer);
-      afbeeldingAan = false;
-
-      scary.setAttribute("animation", {
-        property: "material.opacity",
-        from: 1,
-        to: 0,
-        dur: 1500,
-        easing: "easeInOutQuad"
-      });
-
-      verbergTimer = setTimeout(function () {
-        scary.setAttribute("visible", false);
-      }, 1500);
-    }
-
-    bron.onmessage = function (e) {
-      try {
-        const data = JSON.parse(e.data);
-
-        if (data.event !== "message") return;
-
-        if (data.message === "ACCEPT") {
-          toonAfbeelding();
-        }
-
-        if (data.message === "REMEMBER") {
-          verbergAfbeelding();
-        }
-      } catch (err) {
-        toonStatus("Berichtfout: " + err.message);
+        setTimeout(function () {
+          scary.setAttribute("visible", false);
+        }, 1500);
       }
-    };
+    } catch (err) {
+      status.style.display = "block";
+      status.textContent = "Fout: " + err.message;
+    }
+  };
+</script>
 
-    bron.onerror = function () {
-      toonStatus("Verbinding met ntfy wordt hersteld...");
-    };
-
-    // Meld als de afbeelding niet kan laden
-    document.getElementById("scaryTexture").addEventListener("error", function () {
-      toonStatus("Afbeelding niet geladen. Controleer de afbeeldingslink.");
-    });
-
-    document.getElementById("scaryTexture").addEventListener("load", function () {
-      console.log("Scary-afbeelding geladen.");
-    });
-  </script>
 
 </body>
 </html>
