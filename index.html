@@ -100,11 +100,12 @@
         status.textContent = "AR wordt gestart...";
       });
 
-      scene.addEventListener("arjs-nft-loaded", function () {
-        status.textContent = "Marker geladen!";
-        setTimeout(() => {
-          status.style.display = "none";
-        }, 2500);
+      window.addEventListener("arjs-nft-loaded", function () {
+  status.textContent = "Marker geladen! Richt op je foto.";
+  setTimeout(() => {
+    status.style.display = "none";
+  }, 2500);
+});
       });
     });
 
