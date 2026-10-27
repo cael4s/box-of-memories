@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -5,33 +6,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Box of Memories</title>
 
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 </head>
-
 <body style="margin:0; overflow:hidden;">
 
-  <div id="loader" style="position:absolute; z-index:10; color:white; background:#222; padding:20px;">
+  <div id="status" style="
+    position:fixed; top:10px; left:10px; z-index:9999;
+    background:#222; color:white; padding:12px;
+    font:16px Arial; border-radius:6px;">
     AR wordt geladen...
   </div>
 
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true"
+    renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
     <a-nft
+      id="foto-marker"
       type="nft"
       url="./markers/karrekien800"
+      emitevents="true"
       smooth="true"
       smoothCount="10"
       smoothTolerance="0.01"
       smoothThreshold="5">
 
-      <a-sphere position="100 150 0" radius="25" color="#24152f"></a-sphere>
-      <a-sphere position="200 220 0" radius="18" color="#641b38"></a-sphere>
-      <a-sphere position="280 120 0" radius="22" color="#151515"></a-sphere>
+      <a-sphere position="100 150 0"
+        radius="25" color="#8b1e3f"></a-sphere>
+
+      <a-sphere position="200 220 0"
+        radius="18" color="#24152f"></a-sphere>
+
+      <a-sphere position="280 120 0"
+        radius="22" color="#151515"></a-sphere>
 
     </a-nft>
 
@@ -39,8 +49,25 @@
   </a-scene>
 
   <script>
+    const status = document.getElementById("status");
+
     window.addEventListener("arjs-nft-loaded", function () {
-      document.getElementById("loader").style.display = "none";
+      status.textContent =
+        "Marker geladen! Richt de camera op je foto.";
+    });
+
+    const marker = document.getElementById("foto-marker");
+
+    marker.addEventListener("markerFound", function () {
+      status.textContent = "FOTO HERKEND!";
+    });
+
+    marker.addEventListener("markerLost", function () {
+      status.textContent = "Foto niet meer zichtbaar.";
+    });
+
+    window.addEventListener("error", function (event) {
+      status.textContent = "Fout: " + event.message;
     });
   </script>
 
