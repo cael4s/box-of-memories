@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Box of Memories</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 </head>
 <body style="margin:0; overflow:hidden;">
 
@@ -18,100 +18,57 @@
   </div>
 
   <a-scene
-    embedded
+    mindar-image="imageTargetSrc: targets.mind; uiScanning: no; uiLoading: no;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; precision: medium;"
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
+    device-orientation-permission-ui="enabled: false">
 
-    <a-nft
-      id="foto-marker"
-      type="nft"
-      url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
-      emitevents="true"
-      smooth="true"
-      smoothCount="10"
-      smoothTolerance="0.01"
-      smoothThreshold="5">
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <a-sphere position="100 150 0"
-        radius="25" color="#8b1e3f"></a-sphere>
+    <a-entity id="marker" mindar-image-target="targetIndex: 0">
+      <a-image
+        id="scary"
+        src="karrekienscary800.jpg"
+        width="1" height="0.625"
+        position="0 0 0.01"
+        visible="false">
+      </a-image>
+    </a-entity>
 
-      <a-sphere position="200 220 0"
-        radius="18" color="#24152f"></a-sphere>
-
-      <a-sphere position="280 120 0"
-        radius="22" color="#151515"></a-sphere>
-
-     <a-plane
-  id="scary"
-  color="red"
-  opacity="0.5"
-  width="800" height="500"
-  position="0 0 1"
-  material="side: double"
-  visible="true">
-</a-plane>
-
-    </a-nft>
-
-    <a-entity camera></a-entity>
   </a-scene>
 
   <script>
     const status = document.getElementById("status");
+    const marker = document.getElementById("marker");
+    const scary = document.getElementById("scary");
 
-    window.addEventListener("arjs-nft-loaded", function () {
-      status.textContent =
-        "Marker geladen! Richt de camera op je foto.";
-    });
-
-    const marker = document.getElementById("foto-marker");
-
-    marker.addEventListener("markerFound", function () {
+    marker.addEventListener("targetFound", function () {
       status.textContent = "FOTO HERKEND!";
     });
-
-    marker.addEventListener("markerLost", function () {
+    marker.addEventListener("targetLost", function () {
       status.textContent = "Foto niet meer zichtbaar.";
     });
 
-    window.addEventListener("error", function (event) {
-      status.textContent = "Fout: " + event.message;
-    });
-
     // ===== Arduino-koppeling =====
-    // Vervang dit door JOUW geheime naam (zelfde als in controller.html)
-    // ===== Arduino-koppeling =====
-const TOPIC = "box-of-memories-urk123";
+    const TOPIC = "box-of-memories-urk123";
 
-const bron = new EventSource("https://ntfy.sh/" + TOPIC + "/sse");
+    const bron = new EventSource("https://ntfy.sh/" + TOPIC + "/sse");
 
-bron.onopen = function () {
-  console.log("ntfy verbonden");
-};
+    bron.onmessage = function (e) {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.event !== "message") return;
 
-bron.onmessage = function (e) {
-  try {
-    const data = JSON.parse(e.data);
-    if (data.event !== "message") return;
-
-    const scary = document.getElementById("scary");
-    if (!scary) {
-      status.textContent = "Fout: scary-afbeelding niet gevonden";
-      return;
-    }
-
-    if (data.message === "ACCEPT") {
-      scary.setAttribute("visible", "true");
-      status.textContent = "ACCEPT ontvangen";
-    } else if (data.message === "REMEMBER") {
-      scary.setAttribute("visible", "false");
-      status.textContent = "REMEMBER ontvangen";
-    }
-  } catch (err) {
-    status.textContent = "Fout in bericht: " + err.message;
-  }
-};
+        if (data.message === "ACCEPT") {
+          scary.setAttribute("visible", "true");
+        } else if (data.message === "REMEMBER") {
+          scary.setAttribute("visible", "false");
+        }
+      } catch (err) {
+        status.textContent = "Fout: " + err.message;
+      }
+    };
   </script>
 
 </body>
