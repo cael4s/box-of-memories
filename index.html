@@ -27,10 +27,10 @@
       top: 10px;
       left: 10px;
       z-index: 999;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       padding: 8px 12px;
-      font: 14px Arial;
+      font: 14px Arial, sans-serif;
       border-radius: 6px;
     }
 
@@ -57,7 +57,7 @@
       >
     </a-assets>
 
-    <!-- Bestaande NFT-marker -->
+    <!-- Bestaande NFT-marker: URL niet veranderen -->
     <a-nft
       type="nft"
       url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
@@ -66,7 +66,6 @@
       smoothTolerance="0.01"
       smoothThreshold="5"
     >
-      <!-- Afbeelding gekoppeld aan de marker -->
       <a-image
         id="scary"
         src="#scaryTexture"
@@ -86,28 +85,43 @@
   <script>
     const status = document.getElementById("status");
     const scary = document.getElementById("scary");
+    const scene = document.querySelector("a-scene");
 
     const TOPIC = "box-of-memories-urk123";
+
     const bron = new EventSource(
       "https://ntfy.sh/" + TOPIC + "/sse"
     );
 
     let verbergTimer;
 
-    // AR.js-camera en markerstatus
-    window.addEventListener("load", function () {
-      const scene = document.querySelector("a-scene");
+    // Tijdelijke cameradiagnose
+    scene.addEventListener("loaded", function () {
+      status.textContent =
+        "Scene geladen; camera wordt gestart...";
+    });
 
-      scene.addEventListener("loaded", function () {
-        status.textContent = "AR wordt gestart...";
-      });
+    scene.addEventListener("camera-init", function () {
+      status.textContent =
+        "Camera gestart; NFT-marker wordt geladen...";
+    });
 
-      scene.addEventListener("arjs-nft-loaded", function () {
-        status.textContent = "Marker geladen!";
-        setTimeout(() => {
-          status.style.display = "none";
-        }, 2500);
-      });
+    scene.addEventListener("camera-error", function () {
+      status.textContent =
+        "FOUT: AR.js kan de camera niet starten.";
+    });
+
+    scene.addEventListener("arjs-video-loaded", function () {
+      status.textContent =
+        "Camerabeeld ontvangen; NFT wordt geladen...";
+    });
+
+    window.addEventListener("arjs-nft-loaded", function () {
+      status.textContent = "Marker geladen!";
+
+      setTimeout(function () {
+        status.style.display = "none";
+      }, 2500);
     });
 
     // ACCEPT en REMEMBER via ntfy
@@ -138,8 +152,7 @@
     };
 
     bron.onerror = function () {
-      status.style.display = "block";
-      status.textContent = "Verbinding met ntfy wordt hersteld...";
+      console.log("ntfy-verbinding wordt opnieuw geprobeerd.");
     };
   </script>
 </body>
