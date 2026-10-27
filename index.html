@@ -79,21 +79,37 @@
 
     // ===== Arduino-koppeling =====
     // Vervang dit door JOUW geheime naam (zelfde als in controller.html)
-    const TOPIC = "box-of-memories-urk123";
+    // ===== Arduino-koppeling =====
+const TOPIC = "box-of-memories-urk123";
+
+const bron = new EventSource("https://ntfy.sh/" + TOPIC + "/sse");
+
+bron.onopen = function () {
+  console.log("ntfy verbonden");
+};
+
+bron.onmessage = function (e) {
+  try {
+    const data = JSON.parse(e.data);
+    if (data.event !== "message") return;
+
     const scary = document.getElementById("scary");
+    if (!scary) {
+      status.textContent = "Fout: scary-afbeelding niet gevonden";
+      return;
+    }
 
-    const bron = new EventSource("https://ntfy.sh/" + TOPIC + "/sse");
-
-    bron.onmessage = function (e) {
-      const data = JSON.parse(e.data);
-      if (data.event !== "message") return;
-
-      if (data.message === "ACCEPT") {
-        scary.setAttribute("visible", "true");
-      } else if (data.message === "REMEMBER") {
-        scary.setAttribute("visible", "false");
-      }
-    };
+    if (data.message === "ACCEPT") {
+      scary.setAttribute("visible", "true");
+      status.textContent = "ACCEPT ontvangen";
+    } else if (data.message === "REMEMBER") {
+      scary.setAttribute("visible", "false");
+      status.textContent = "REMEMBER ontvangen";
+    }
+  } catch (err) {
+    status.textContent = "Fout in bericht: " + err.message;
+  }
+};
   </script>
 
 </body>
