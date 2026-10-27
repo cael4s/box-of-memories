@@ -4,12 +4,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <title>Box of Memories</title>
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.7/three.js/build/ar-nft.js"></script>
+
+  <!-- A-Frame -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
+
+  <!-- AR.js met NFT-afbeeldingstracking -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
     html, body {
@@ -24,29 +29,49 @@
       position: fixed;
       top: 10px;
       left: 10px;
-      z-index: 999;
-      background: rgba(0,0,0,0.7);
+      right: 10px;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.75);
       color: white;
-      padding: 8px 12px;
-      font: 14px Arial;
-      border-radius: 6px;
+      padding: 12px;
+      font: 15px Arial, sans-serif;
+      border-radius: 8px;
+      text-align: center;
     }
 
-    .a-enter-vr, .a-enter-ar {
+    .arjs-loader {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      font: 16px Arial, sans-serif;
+    }
+
+    .a-enter-vr {
       display: none !important;
     }
   </style>
 </head>
 
 <body>
-  <div id="status">Camera starten...</div>
+
+  <div class="arjs-loader" id="loader">
+    AR wordt gestart...
+  </div>
+
+  <div id="status">Camera en marker starten...</div>
 
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true;"
+    renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
+
     <a-assets>
       <img
         id="scaryTexture"
@@ -55,8 +80,9 @@
       >
     </a-assets>
 
-    <!-- Bestaande NFT-marker: deze URL niet veranderen -->
+    <!-- Bestaande NFT-marker: URL bewust behouden -->
     <a-nft
+      id="memoryMarker"
       type="nft"
       url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
       smooth="true"
@@ -64,7 +90,8 @@
       smoothTolerance="0.01"
       smoothThreshold="5"
     >
-      <!-- Afbeelding gekoppeld aan de marker -->
+
+      <!-- Afbeelding in verhouding 800 x 500 -->
       <a-image
         id="scary"
         src="#scaryTexture"
@@ -73,43 +100,114 @@
         position="0 0 0.01"
         visible="false"
         material="shader: flat; transparent: true; opacity: 0; side: double"
-        animation__in="property: material.opacity; from: 0; to: 1; dur: 1500; startEvents: fadein"
-        animation__out="property: material.opacity; from: 1; to: 0; dur: 1500; startEvents: fadeout"
       ></a-image>
+
     </a-nft>
 
     <a-entity camera></a-entity>
+
   </a-scene>
 
   <script>
     const status = document.getElementById("status");
+    const loader = document.getElementById("loader");
     const scary = document.getElementById("scary");
+    const marker = document.getElementById("memoryMarker");
 
+    // ===== ntfy-koppeling =====
     const TOPIC = "box-of-memories-urk123";
+
     const bron = new EventSource(
       "https://ntfy.sh/" + TOPIC + "/sse"
     );
 
     let verbergTimer;
+    let afbeeldingAan = false;
 
-    // AR.js-camera en markerstatus
-    window.addEventListener("load", function () {
-      const scene = document.querySelector("a-scene");
+    // ===== AR-laadstatus =====
+    function toonStatus(tekst) {
+      status.textContent = tekst;
+      status.style.display = "block";
+    }
 
-      scene.addEventListener("loaded", function () {
-        status.textContent = "AR wordt gestart...";
-      });
+    function verbergLaadscherm() {
+      loader.style.display = "none";
+    }
 
-      window.addEventListener("arjs-nft-loaded", function () {
-  status.textContent = "Marker geladen! Richt op je foto.";
-  setTimeout(() => {
-    status.style.display = "none";
-  }, 2500);
-});
-      });
+    // AR.js geeft aan wanneer de NFT-markerbestanden geladen zijn.
+    window.addEventListener("arjs-nft-loaded", function () {
+      verbergLaadscherm();
+      toonStatus("Marker geladen! Richt op je foto.");
+
+      setTimeout(function () {
+        status.style.display = "none";
+      }, 3500);
     });
 
-    // ACCEPT en REMEMBER via ntfy
+    // Marker gevonden
+    marker.addEventListener("markerFound", function () {
+      verbergLaadscherm();
+      toonStatus("Foto herkend!");
+
+      setTimeout(function () {
+        status.style.display = "none";
+      }, 2000);
+
+      if (afbeeldingAan) {
+        scary.setAttribute("visible", true);
+        scary.setAttribute("material", "opacity", 1);
+      }
+    });
+
+    // Marker uit beeld
+    marker.addEventListener("markerLost", function () {
+      // De gekozen ACCEPT-status blijft behouden.
+      // De afbeelding blijft aan de marker gekoppeld.
+    });
+
+    // Toon fouten als AR.js niet start
+    window.addEventListener("camera-init", function () {
+      verbergLaadscherm();
+      toonStatus("Camera gestart. Marker wordt geladen...");
+    });
+
+    window.addEventListener("camera-error", function () {
+      verbergLaadscherm();
+      toonStatus("Camera-fout. Controleer de cameratoestemming.");
+    });
+
+    // ===== ACCEPT en REMEMBER =====
+    function toonAfbeelding() {
+      clearTimeout(verbergTimer);
+      afbeeldingAan = true;
+
+      scary.setAttribute("visible", true);
+      scary.setAttribute("animation", {
+        property: "material.opacity",
+        from: 0,
+        to: 1,
+        dur: 1500,
+        easing: "easeInOutQuad"
+      });
+    }
+
+    function verbergAfbeelding() {
+      clearTimeout(verbergTimer);
+      afbeeldingAan = false;
+
+      scary.setAttribute("animation", {
+        property: "material.opacity",
+        from: 1,
+        to: 0,
+        dur: 1500,
+        easing: "easeInOutQuad"
+      });
+
+      verbergTimer = setTimeout(function () {
+        scary.setAttribute("visible", false);
+      }, 1500);
+    }
+
     bron.onmessage = function (e) {
       try {
         const data = JSON.parse(e.data);
@@ -117,29 +215,30 @@
         if (data.event !== "message") return;
 
         if (data.message === "ACCEPT") {
-          clearTimeout(verbergTimer);
-
-          scary.setAttribute("visible", true);
-          scary.emit("fadein");
+          toonAfbeelding();
         }
 
         if (data.message === "REMEMBER") {
-          scary.emit("fadeout");
-
-          verbergTimer = setTimeout(function () {
-            scary.setAttribute("visible", false);
-          }, 1500);
+          verbergAfbeelding();
         }
       } catch (err) {
-        status.style.display = "block";
-        status.textContent = "Fout: " + err.message;
+        toonStatus("Berichtfout: " + err.message);
       }
     };
 
     bron.onerror = function () {
-      status.style.display = "block";
-      status.textContent = "Verbinding met ntfy wordt hersteld...";
+      toonStatus("Verbinding met ntfy wordt hersteld...");
     };
+
+    // Meld als de afbeelding niet kan laden
+    document.getElementById("scaryTexture").addEventListener("error", function () {
+      toonStatus("Afbeelding niet geladen. Controleer de afbeeldingslink.");
+    });
+
+    document.getElementById("scaryTexture").addEventListener("load", function () {
+      console.log("Scary-afbeelding geladen.");
+    });
   </script>
+
 </body>
 </html>
