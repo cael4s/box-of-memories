@@ -5,10 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Box of Memories - AR</title>
+  <title>Box of Memories</title>
 
   <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
 
   <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
@@ -21,155 +21,144 @@
 
     #status {
       position: fixed;
-      top: 12px;
-      left: 12px;
-      z-index: 100;
-      padding: 10px 14px;
-      border-radius: 8px;
-      background: rgba(0, 0, 0, 0.75);
+      top: 10px;
+      left: 10px;
+      z-index: 9999;
+      background: #222;
       color: white;
-      font: 14px Arial, sans-serif;
+      padding: 12px;
+      font: 16px Arial, sans-serif;
+      border-radius: 6px;
     }
   </style>
 </head>
 
 <body>
-  <div id="status">Camera wordt gestart...</div>
+
+  <div id="status">AR wordt geladen...</div>
 
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="alpha: true; colorManagement: true"
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-  >
+    renderer="logarithmicDepthBuffer: true; precision: medium;"
+    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
+
+    <!-- Afbeelding laden -->
     <a-assets>
       <img
         id="scary-image"
         src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
-        crossorigin="anonymous"
-      >
+        crossorigin="anonymous">
     </a-assets>
 
+    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
       url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
+      emitevents="true"
       smooth="true"
       smoothCount="10"
       smoothTolerance="0.01"
-      smoothThreshold="5"
-    >
-      <!-- Afbeelding plat op de marker -->
+      smoothThreshold="5">
+
+      <!-- Bestaande AR-objecten -->
+      <a-sphere
+        position="100 150 0"
+        radius="25"
+        color="#8b1e3f">
+      </a-sphere>
+
+      <a-sphere
+        position="200 220 0"
+        radius="18"
+        color="#24152f">
+      </a-sphere>
+
+      <a-sphere
+        position="280 120 0"
+        radius="22"
+        color="#151515">
+      </a-sphere>
+
+      <!-- Enge afbeelding met fade-in -->
       <a-plane
         id="scary-overlay"
-        position="0 0 1"
+        position="200 150 1"
         rotation="0 0 0"
-        width="100"
-        height="100"
+        width="400"
+        height="300"
+        src="#scary-image"
         visible="false"
-        material="
-          shader: flat;
-          src: #scary-image;
-          transparent: true;
-          opacity: 0;
-          side: double;
-        "
-      ></a-plane>
+        material="shader: flat; side: double; transparent: true; opacity: 0"
+        animation__fade="property: material.opacity; from: 0; to: 1; dur: 1200; startEvents: fadeStart; easing: easeInOutSine">
+      </a-plane>
+
     </a-nft>
 
     <a-entity camera></a-entity>
+
   </a-scene>
 
   <script>
-    const marker = document.querySelector("#foto-marker");
-    const overlay = document.querySelector("#scary-overlay");
-    const image = document.querySelector("#scary-image");
-    const status = document.querySelector("#status");
+    const status = document.getElementById("status");
+    const marker = document.getElementById("foto-marker");
+    const scaryOverlay = document.getElementById("scary-overlay");
+    const scaryImage = document.getElementById("scary-image");
 
-    const FADE_DURATION = 1200;
+    let isVisible = false;
 
-    let markerVisible = false;
-    let fadeFrame = null;
+    // Controleer of de afbeelding geladen is
+    scaryImage.addEventListener("load", function () {
+      console.log("Enge afbeelding geladen.");
+    });
 
-    function stopFade() {
-      if (fadeFrame !== null) {
-        cancelAnimationFrame(fadeFrame);
-        fadeFrame = null;
-      }
-    }
+    scaryImage.addEventListener("error", function () {
+      status.textContent =
+        "Fout: de enge afbeelding kon niet worden geladen.";
+    });
 
-    function setOpacity(value) {
-      overlay.setAttribute("material", "opacity", value);
-    }
+    // AR.js geladen
+    window.addEventListener("arjs-nft-loaded", function () {
+      status.textContent =
+        "Marker geladen! Richt de camera op je foto.";
+    });
 
-    function fadeIn() {
-      stopFade();
-
-      markerVisible = true;
-
-      overlay.setAttribute("visible", true);
-      setOpacity(0);
-
-      const startTime = performance.now();
-
-      function animate(now) {
-        if (!markerVisible) {
-          fadeFrame = null;
-          return;
-        }
-
-        const progress = Math.min(
-          (now - startTime) / FADE_DURATION,
-          1
-        );
-
-        // Soepele fade-in
-        const eased = progress * progress * (3 - 2 * progress);
-
-        setOpacity(eased);
-
-        if (progress < 1) {
-          fadeFrame = requestAnimationFrame(animate);
-        } else {
-          setOpacity(1);
-          fadeFrame = null;
-        }
-      }
-
-      fadeFrame = requestAnimationFrame(animate);
-    }
-
+    // Marker herkend
     marker.addEventListener("markerFound", function () {
-      if (markerVisible) return;
+      status.textContent = "FOTO HERKEND!";
 
-      status.textContent = "Marker herkend — afbeelding verschijnt";
-      fadeIn();
+      if (isVisible) return;
+      isVisible = true;
+
+      // Start onzichtbaar
+      scaryOverlay.setAttribute("visible", true);
+      scaryOverlay.setAttribute("material", {
+        shader: "flat",
+        side: "double",
+        transparent: true,
+        opacity: 0
+      });
+
+      // Laat de afbeelding geleidelijk verschijnen
+      scaryOverlay.emit("fadeStart");
     });
 
+    // Marker verloren
     marker.addEventListener("markerLost", function () {
-      markerVisible = false;
-      stopFade();
+      status.textContent = "Foto niet meer zichtbaar.";
 
-      setOpacity(0);
-      overlay.setAttribute("visible", false);
-
-      status.textContent = "Richt de camera op de marker";
+      isVisible = false;
+      scaryOverlay.setAttribute("visible", false);
+      scaryOverlay.setAttribute("material", "opacity", 0);
     });
 
-    image.addEventListener("load", function () {
-      console.log("Afbeelding succesvol geladen:", image.src);
-      status.textContent = "Afbeelding geladen — zoek de marker";
-    });
-
-    image.addEventListener("error", function () {
-      status.textContent = "Fout: afbeelding niet geladen";
-      console.error("Afbeelding kon niet worden geladen:", image.src);
-    });
-
-    window.addEventListener("load", function () {
-      status.textContent = "Richt de camera op de marker";
+    // Algemene fouten
+    window.addEventListener("error", function (event) {
+      status.textContent = "Fout: " + event.message;
     });
   </script>
+
 </body>
 </html>
 ```
