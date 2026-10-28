@@ -1,6 +1,6 @@
 ```html
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -33,11 +33,39 @@
       font-size: 14px;
       text-align: center;
     }
+
+    /* Large message displayed over the camera */
+    #message-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 30px;
+      background: rgba(0, 0, 0, 0.72);
+      color: white;
+      text-align: center;
+      font-size: clamp(28px, 7vw, 56px);
+      line-height: 1.35;
+      font-weight: bold;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+
+    #message-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
   </style>
 </head>
 
 <body>
-  <div id="status">AR wordt geladen...</div>
+  <div id="status">Starting AR...</div>
+  <div id="message-overlay" aria-live="polite"></div>
 
   <a-scene
     embedded
@@ -45,7 +73,6 @@
     renderer="logarithmicDepthBuffer: true;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
-    <!-- Alleen de OUDE afbeelding wordt als overlay gebruikt -->
     <a-assets>
       <img
         id="scary-texture"
@@ -54,7 +81,7 @@
       >
     </a-assets>
 
-    <!-- NIEUWE marker: karrekienherken -->
+    <!-- New image is used only for NFT marker recognition -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -64,10 +91,9 @@
       smoothTolerance=".01"
       smoothThreshold="5"
     >
-      <!-- Overlay: positie en afmetingen behouden -->
       <a-plane
         id="scary-overlay"
-        position="0 90 0"
+        position="40 30 0"
         rotation="-90 0 0"
         width="80"
         height="50"
@@ -87,20 +113,22 @@
   </a-scene>
 
   <script>
-    // Dit moet overeenkomen met het topic in box_of_memories.py
     const NTFY_TOPIC = "box-of-memories-urk123";
 
     const statusElement = document.getElementById("status");
     const overlay = document.getElementById("scary-overlay");
     const marker = document.getElementById("foto-marker");
+    const messageOverlay = document.getElementById("message-overlay");
 
     let fadeAnimation = null;
+    let messageTimer = null;
+    let messageDelayTimer = null;
 
     function setStatus(message) {
       statusElement.textContent = message;
     }
 
-    function fadeNaar(doelOpacity, duur = 800) {
+    function fadeNaar(targetOpacity, duration = 800) {
       if (!overlay) return;
 
       if (fadeAnimation) {
@@ -108,27 +136,27 @@
         fadeAnimation = null;
       }
 
-      const huidigeOpacity =
+      const currentOpacity =
         Number(overlay.getAttribute("material").opacity) || 0;
 
       overlay.setAttribute("visible", true);
 
       fadeAnimation = overlay.animate(
         [
-          { opacity: huidigeOpacity },
-          { opacity: doelOpacity }
+          { opacity: currentOpacity },
+          { opacity: targetOpacity }
         ],
         {
-          duration: duur,
+          duration,
           easing: "ease-in-out",
           fill: "forwards"
         }
       );
 
       fadeAnimation.onfinish = () => {
-        overlay.setAttribute("material", "opacity", doelOpacity);
+        overlay.setAttribute("material", "opacity", targetOpacity);
 
-        if (doelOpacity === 0) {
+        if (targetOpacity === 0) {
           overlay.setAttribute("visible", false);
         }
 
@@ -136,66 +164,86 @@
       };
     }
 
-    // Verwerk berichten die via ntfy van Python binnenkomen
-    function verwerkBericht(data) {
-      const actie = String(data.message || "")
+    // Show the selected message after a 3-second delay.
+    // Keep it visible for 3 seconds, then hide it.
+    function showMessageAfterDelay(message) {
+      clearTimeout(messageDelayTimer);
+      clearTimeout(messageTimer);
+
+      messageOverlay.classList.remove("visible");
+      messageOverlay.textContent = "";
+
+      messageDelayTimer = setTimeout(() => {
+        messageOverlay.textContent = message;
+        messageOverlay.classList.add("visible");
+
+        messageTimer = setTimeout(() => {
+          messageOverlay.classList.remove("visible");
+        }, 3000);
+      }, 3000);
+    }
+
+    function processMessage(data) {
+      const action = String(data.message || "")
         .trim()
         .toUpperCase();
 
-      console.log("ntfy-bericht ontvangen:", actie);
+      console.log("ntfy message received:", action);
 
-      if (actie === "ACCEPT") {
+      if (action === "ACCEPT") {
         fadeNaar(1, 800);
-        setStatus("Herinnering geopend");
+        setStatus("Memory opened");
+
+        showMessageAfterDelay(
+          "... I take the new and make something out of it"
+        );
       }
 
-      if (actie === "REMEMBER") {
+      if (action === "REMEMBER") {
         fadeNaar(0, 800);
-        setStatus("Herinnering opgeborgen");
+        setStatus("Holding on to the past");
+
+        showMessageAfterDelay(
+          "... I hold on to what once was"
+        );
       }
     }
 
-    // Verbinding met ntfy
+    // Connect to ntfy to receive messages from the Python script.
     const ntfyUrl = `https://ntfy.sh/${NTFY_TOPIC}/sse`;
     const ntfy = new EventSource(ntfyUrl);
 
     ntfy.onopen = () => {
-      setStatus("Verbonden — wacht op knoppen");
-      console.log("Verbonden met ntfy");
+      setStatus("Connected — waiting for buttons");
+      console.log("Connected to ntfy");
     };
 
     ntfy.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        verwerkBericht(data);
+        processMessage(data);
       } catch (error) {
-        console.error("Bericht kon niet worden gelezen:", error);
+        console.error("Could not read ntfy message:", error);
       }
     };
 
     ntfy.onerror = (error) => {
-      setStatus("ntfy-verbinding herstellen...");
-      console.error("ntfy-verbindingsfout:", error);
+      setStatus("Reconnecting to ntfy...");
+      console.error("ntfy connection error:", error);
     };
 
-    // NFT-markerstatus
+    // NFT marker tracking status.
     marker.addEventListener("markerFound", () => {
-      setStatus("Marker herkend");
-      console.log("Marker herkend");
+      setStatus("Marker recognized");
     });
 
     marker.addEventListener("markerLost", () => {
-      setStatus("Richt de camera op de afbeelding");
-      console.log("Marker uit beeld");
+      setStatus("Point the camera at the image");
     });
 
-    // Start met de overlay verborgen
+    // Start with the image overlay hidden.
     overlay.setAttribute("visible", false);
     overlay.setAttribute("material", "opacity", 0);
-
-    window.addEventListener("load", () => {
-      setStatus("Camera en AR worden gestart...");
-    });
   </script>
 </body>
 </html>
