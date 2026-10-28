@@ -7,29 +7,50 @@
 
   <title>Box of Memories</title>
 
-  <!-- A-Frame -->
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
-
-  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #status {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 10000;
+      background: #222;
+      color: white;
+      padding: 12px;
+      font: 16px Arial, sans-serif;
+      border-radius: 6px;
+    }
+
+    /* Afbeelding boven op de camerabeelden */
+    #scary-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 9000;
+      pointer-events: none;
+    }
+  </style>
 </head>
 
-<body style="margin: 0; overflow: hidden;">
+<body>
 
-  <!-- Statusmelding -->
-  <div id="status" style="
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 9999;
-    background: #222;
-    color: white;
-    padding: 12px;
-    font: 16px Arial;
-    border-radius: 6px;
-  ">
-    AR wordt geladen...
-  </div>
+  <div id="status">AR wordt geladen...</div>
+
+  <!-- Schermvullende afbeelding boven op de camera -->
+  <img
+    id="scary-screen"
+    src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
+    alt="De enge herinnering">
 
   <a-scene
     embedded
@@ -37,15 +58,7 @@
     renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- Enge afbeelding laden -->
-    <a-assets>
-      <img
-        id="scary-image"
-        src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
-        crossorigin="anonymous">
-    </a-assets>
-
-    <!-- NFT-marker -->
+    <!-- Je bestaande NFT-marker blijft behouden -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -56,7 +69,7 @@
       smoothTolerance="0.01"
       smoothThreshold="5">
 
-      <!-- Bestaande AR-objecten -->
+      <!-- Bestaande objecten -->
       <a-sphere
         position="100 150 0"
         radius="25"
@@ -75,21 +88,8 @@
         color="#151515">
       </a-sphere>
 
-      <!-- Enge afbeelding over de marker -->
-      <a-plane
-        id="scary-overlay"
-        position="100 150 0"
-        rotation="-90 0 0"
-        width="200"
-        height="150"
-        src="#scary-image"
-        visible="false"
-        material="shader: flat; side: double;">
-      </a-plane>
-
     </a-nft>
 
-    <!-- Camera -->
     <a-entity camera></a-entity>
 
   </a-scene>
@@ -97,17 +97,16 @@
   <script>
     const status = document.getElementById("status");
     const marker = document.getElementById("foto-marker");
-    const scaryOverlay = document.getElementById("scary-overlay");
-    const scaryImage = document.getElementById("scary-image");
+    const scaryScreen = document.getElementById("scary-screen");
 
-    // Controleer of de afbeelding geladen wordt
-    scaryImage.addEventListener("load", function () {
+    // Controleer of de enge afbeelding geladen is
+    scaryScreen.addEventListener("load", function () {
       console.log("Enge afbeelding geladen.");
     });
 
-    scaryImage.addEventListener("error", function () {
+    scaryScreen.addEventListener("error", function () {
       status.textContent =
-        "Fout: enge afbeelding niet gevonden. Controleer het afbeeldingspad.";
+        "Fout: de enge afbeelding kon niet worden geladen.";
     });
 
     // AR.js geladen
@@ -116,19 +115,18 @@
         "Marker geladen! Richt de camera op je foto.";
     });
 
-    // Marker herkend: toon de enge afbeelding
+    // Marker herkend: toon afbeelding op het camerascherm
     marker.addEventListener("markerFound", function () {
       status.textContent = "FOTO HERKEND!";
-      scaryOverlay.setAttribute("visible", true);
+      scaryScreen.style.display = "block";
     });
 
-    // Marker verloren: verberg de enge afbeelding
+    // Marker verloren: verberg afbeelding
     marker.addEventListener("markerLost", function () {
       status.textContent = "Foto niet meer zichtbaar.";
-      scaryOverlay.setAttribute("visible", false);
+      scaryScreen.style.display = "none";
     });
 
-    // Algemene fouten
     window.addEventListener("error", function (event) {
       status.textContent = "Fout: " + event.message;
     });
