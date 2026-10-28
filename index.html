@@ -1,11 +1,14 @@
-```html
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
 
-  <title>Box of Memories - AR</title>
+  <title>Box of Memories</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
@@ -14,56 +17,49 @@
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
+      background: #000;
       font-family: Arial, sans-serif;
     }
 
     #status {
       position: fixed;
+      z-index: 9999;
       top: 12px;
       left: 12px;
-      z-index: 100;
-      padding: 10px 14px;
+      right: 12px;
+      padding: 12px;
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.8);
       color: white;
+      background: rgba(0, 0, 0, 0.75);
       font-size: 14px;
-      max-width: 80%;
+      line-height: 1.4;
+      pointer-events: none;
     }
 
-    #connect-serial {
-      position: fixed;
-      top: 65px;
-      left: 12px;
-      z-index: 101;
-      padding: 12px 16px;
-      border: 0;
-      border-radius: 8px;
-      background: white;
-      color: #111;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    #connect-serial:disabled {
-      opacity: 0.7;
-      cursor: default;
+    #status.error {
+      background: rgba(150, 0, 0, 0.85);
     }
   </style>
 </head>
 
 <body>
-  <div id="status">REMEMBER — normale foto zichtbaar</div>
-  <button id="connect-serial">Verbind Arduino</button>
 
+  <div id="status">Box of Memories wordt gestart...</div>
+
+  <!-- Afbeelding laden -->
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="alpha: true; colorManagement: true"
+    renderer="logarithmicDepthBuffer: true; colorManagement: true;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
+
     <a-assets>
       <img
         id="scary-image"
@@ -72,17 +68,18 @@
       >
     </a-assets>
 
-    <!-- NFT-marker -->
+    <!-- Bestaande NFT-marker -->
     <a-nft
-      id="foto-marker"
+      id="memory-marker"
       type="nft"
       url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
       smooth="true"
       smoothCount="10"
-      smoothTolerance="0.01"
+      smoothTolerance=".01"
       smoothThreshold="5"
     >
-      <!-- Jouw ingestelde positie, rotatie en afmetingen -->
+
+      <!-- Bestaande positie en afmetingen behouden -->
       <a-plane
         id="scary-overlay"
         position="40 30 0"
@@ -99,273 +96,215 @@
           depthWrite: false;
         "
       ></a-plane>
+
     </a-nft>
 
     <a-entity camera></a-entity>
+
   </a-scene>
 
   <script>
-    const marker = document.querySelector("#foto-marker");
+    // ==========================================
+    // BOX OF MEMORIES - NTfy verbinding
+    // ==========================================
+
+    const NTFY_TOPIC = "box-of-memories-urk123";
+    const NTFY_URL =
+      "https://ntfy.sh/" + NTFY_TOPIC + "/json?since=now";
+
     const overlay = document.querySelector("#scary-overlay");
-    const image = document.querySelector("#scary-image");
-    const status = document.querySelector("#status");
-    const connectButton = document.querySelector("#connect-serial");
+    const marker = document.querySelector("#memory-marker");
+    const statusBox = document.querySelector("#status");
 
-    const FADE_DURATION = 1200;
+    let accepted = false;
+    let markerVisible = false;
+    let animationToken = 0;
 
-    // Begin altijd in REMEMBER-modus.
-    let plaagActief = false;
-    let markerZichtbaar = false;
-    let fadeFrame = null;
-
-    // Arduino-seriële verbinding.
-    let serialPort = null;
-    let serialReader = null;
-    let serialBuffer = "";
-
-    function setOpacity(value) {
-      overlay.setAttribute("material", "opacity", value);
+    function setStatus(message, error = false) {
+      statusBox.textContent = message;
+      statusBox.classList.toggle("error", error);
     }
 
-    function stopFade() {
-      if (fadeFrame !== null) {
-        cancelAnimationFrame(fadeFrame);
-        fadeFrame = null;
-      }
-    }
+    // ==========================================
+    // AFBEELDING IN- EN UITFADEN
+    // ==========================================
 
-    // Vloeiende fade-in.
-    function fadeIn() {
-      stopFade();
+    function fadeOverlay(show) {
+      if (!overlay) return;
 
-      if (!plaagActief || !markerZichtbaar) {
-        fadeOut();
-        return;
+      const token = ++animationToken;
+
+      if (show) {
+        overlay.setAttribute("visible", true);
       }
 
-      overlay.setAttribute("visible", true);
-      setOpacity(0);
-
+      const material = overlay.getAttribute("material") || {};
+      const startOpacity = Number(material.opacity ?? 0);
+      const endOpacity = show ? 1 : 0;
+      const duration = 1200;
       const startTime = performance.now();
 
       function animate(now) {
-        if (!plaagActief || !markerZichtbaar) {
-          fadeFrame = null;
-          fadeOut();
-          return;
-        }
+        // Stop een eerdere animatie als een nieuw bericht komt.
+        if (token !== animationToken) return;
 
         const progress = Math.min(
-          (now - startTime) / FADE_DURATION,
+          (now - startTime) / duration,
           1
         );
 
-        // Smoothstep voor een zachte overgang.
-        const eased = progress * progress * (3 - 2 * progress);
+        // Soepele fade
+        const eased =
+          progress * progress * (3 - 2 * progress);
 
-        setOpacity(eased);
+        const opacity =
+          startOpacity +
+          (endOpacity - startOpacity) * eased;
 
-        if (progress < 1) {
-          fadeFrame = requestAnimationFrame(animate);
-        } else {
-          setOpacity(1);
-          fadeFrame = null;
-        }
-      }
-
-      fadeFrame = requestAnimationFrame(animate);
-    }
-
-    // Vloeiende fade-out.
-    function fadeOut() {
-      stopFade();
-
-      const material = overlay.getAttribute("material");
-      const startOpacity = material
-        ? Number(material.opacity)
-        : 0;
-
-      if (
-        !overlay.getAttribute("visible") ||
-        startOpacity <= 0
-      ) {
-        setOpacity(0);
-        overlay.setAttribute("visible", false);
-        return;
-      }
-
-      const startTime = performance.now();
-
-      function animate(now) {
-        const progress = Math.min(
-          (now - startTime) / FADE_DURATION,
-          1
-        );
-
-        const eased = progress * progress * (3 - 2 * progress);
-
-        setOpacity(startOpacity * (1 - eased));
+        overlay.setAttribute("material", "opacity", opacity);
 
         if (progress < 1) {
-          fadeFrame = requestAnimationFrame(animate);
-        } else {
-          setOpacity(0);
+          requestAnimationFrame(animate);
+        } else if (!show) {
           overlay.setAttribute("visible", false);
-          fadeFrame = null;
         }
       }
 
-      fadeFrame = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
     }
 
-    // Pas de afbeelding aan de huidige toestand aan.
-    function updateAR() {
-      if (plaagActief && markerZichtbaar) {
-        status.textContent =
-          "ACCEPT — de plaag is begonnen";
-        fadeIn();
-      } else {
-        fadeOut();
-
-        if (plaagActief) {
-          status.textContent =
-            "ACCEPT actief — zoek de marker";
-        } else {
-          status.textContent =
-            "REMEMBER — normale foto zichtbaar";
-        }
-      }
+    function updateOverlay() {
+      fadeOverlay(accepted && markerVisible);
     }
 
-    // Arduino-berichten verwerken.
-    function verwerkBericht(bericht) {
-      bericht = bericht.trim();
+    // ==========================================
+    // NFT-MARKER GEVONDEN OF VERLOREN
+    // ==========================================
 
-      if (!bericht) return;
+    marker.addEventListener("markerFound", () => {
+      markerVisible = true;
+      setStatus(
+        accepted
+          ? "Marker gevonden — herinnering actief"
+          : "Marker gevonden — wacht op ACCEPT"
+      );
+      updateOverlay();
+    });
 
-      console.log("Arduino:", bericht);
+    marker.addEventListener("markerLost", () => {
+      markerVisible = false;
+      setStatus("Marker niet zichtbaar");
+      updateOverlay();
+    });
 
-      if (bericht === "ACCEPT||1") {
-        plaagActief = true;
-        updateAR();
-      } else if (bericht === "REMEMBER||1") {
-        plaagActief = false;
-        updateAR();
-      }
-    }
+    // ==========================================
+    // NTfy BERICHTEN ONTVANGEN
+    // ==========================================
 
-    // Verbind de Arduino via Web Serial.
-    async function verbindArduino() {
-      if (!("serial" in navigator)) {
-        status.textContent =
-          "Web Serial niet beschikbaar. Gebruik Chrome of Edge op HTTPS.";
-        return;
-      }
-
-      try {
-        connectButton.disabled = true;
-        status.textContent = "Selecteer de Arduino-poort...";
-
-        serialPort = await navigator.serial.requestPort();
-
-        // Moet overeenkomen met Serial.begin(9600).
-        await serialPort.open({ baudRate: 9600 });
-
-        status.textContent =
-          "Arduino verbonden — REMEMBER-modus";
-        connectButton.textContent = "Arduino verbonden";
-
-        const decoder = new TextDecoderStream();
-        const readableClosed =
-          serialPort.readable.pipeTo(decoder.writable);
-
-        serialReader = decoder.readable.getReader();
-        serialBuffer = "";
+    async function listenToNtfy() {
+      while (true) {
+        let reader;
 
         try {
+          setStatus("Verbinden met ntfy...");
+
+          const response = await fetch(NTFY_URL, {
+            cache: "no-store"
+          });
+
+          if (!response.ok) {
+            throw new Error("ntfy HTTP " + response.status);
+          }
+
+          if (!response.body) {
+            throw new Error("De browser ondersteunt deze stream niet.");
+          }
+
+          reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          setStatus("Verbonden met ntfy — wacht op knoppen");
+
           while (true) {
-            const { value, done } = await serialReader.read();
+            const result = await reader.read();
 
-            if (done) break;
+            if (result.done) break;
 
-            serialBuffer += value;
+            buffer += decoder.decode(result.value, {
+              stream: true
+            });
 
-            const regels = serialBuffer.split(/\r?\n/);
-            serialBuffer = regels.pop() || "";
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
 
-            for (const regel of regels) {
-              verwerkBericht(regel);
+            for (const line of lines) {
+              if (!line.trim()) continue;
+
+              let event;
+
+              try {
+                event = JSON.parse(line);
+              } catch {
+                continue;
+              }
+
+              if (event.event !== "message") continue;
+
+              const message = String(event.message || "")
+                .trim()
+                .toUpperCase();
+
+              if (message === "ACCEPT") {
+                accepted = true;
+
+                setStatus(
+                  markerVisible
+                    ? "ACCEPT — herinnering verschijnt"
+                    : "ACCEPT ontvangen — zoek de marker"
+                );
+
+                updateOverlay();
+                console.log("ntfy: ACCEPT ontvangen");
+              }
+
+              if (message === "REMEMBER") {
+                accepted = false;
+
+                setStatus("REMEMBER — herinnering verborgen");
+
+                updateOverlay();
+                console.log("ntfy: REMEMBER ontvangen");
+              }
             }
           }
+
+        } catch (error) {
+          console.error("ntfy-verbinding:", error);
+
+          setStatus(
+            "Verbinding verbroken — opnieuw proberen...",
+            true
+          );
+
         } finally {
-          serialReader.releaseLock();
-          await readableClosed.catch(() => {});
+          if (reader) {
+            try {
+              await reader.cancel();
+            } catch (_) {
+              // De verbinding kan al gesloten zijn.
+            }
+          }
         }
-      } catch (error) {
-        console.error("Arduino-verbinding mislukt:", error);
 
-        status.textContent =
-          "Verbinding mislukt: " +
-          (error.message || "controleer de poort en USB-verbinding");
-
-        connectButton.disabled = false;
-        connectButton.textContent = "Opnieuw verbinden";
+        // Opnieuw verbinden na een onderbreking.
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
-    connectButton.addEventListener("click", verbindArduino);
-
-    // Marker herkend.
-    marker.addEventListener("markerFound", function () {
-      markerZichtbaar = true;
-      updateAR();
-    });
-
-    // Marker verloren.
-    marker.addEventListener("markerLost", function () {
-      markerZichtbaar = false;
-      updateAR();
-    });
-
-    // Controleer of de afbeelding geladen is.
-    image.addEventListener("load", function () {
-      console.log("AR-afbeelding geladen:", image.src);
-    });
-
-    image.addEventListener("error", function () {
-      status.textContent =
-        "De AR-afbeelding kon niet worden geladen.";
-      console.error("Afbeelding laden mislukt:", image.src);
-    });
-
-    // Extra bescherming: start onzichtbaar.
-    verbergBijStart();
-
-    function verbergBijStart() {
-      stopFade();
-      setOpacity(0);
-      overlay.setAttribute("visible", false);
-    }
-
-    // Bij het sluiten van de pagina de lezer opruimen.
-    window.addEventListener("pagehide", async function () {
-      try {
-        if (serialReader) {
-          await serialReader.cancel();
-        }
-      } catch (error) {
-        console.warn("Seriële lezer afsluiten:", error);
-      }
-
-      try {
-        if (serialPort && serialPort.readable) {
-          await serialPort.close();
-        }
-      } catch (error) {
-        console.warn("Seriële poort afsluiten:", error);
-      }
-    });
+    // Start luisteren naar ntfy.
+    listenToNtfy();
   </script>
+
 </body>
 </html>
-```
