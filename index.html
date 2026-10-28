@@ -1,82 +1,50 @@
-```html
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
   <title>Box of Memories</title>
 
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.7/three.js/build/ar-nft.js"></script>
-
-  <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-
-    #status {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px 12px;
-      font: 14px Arial, sans-serif;
-      border-radius: 6px;
-    }
-
-    .a-enter-vr, .a-enter-ar {
-      display: none !important;
-    }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 </head>
+<body style="margin:0; overflow:hidden;">
 
-<body>
-  <div id="status">Camera starten...</div>
+  <div id="status" style="
+    position:fixed; top:10px; left:10px; z-index:9999;
+    background:#222; color:white; padding:12px;
+    font:16px Arial; border-radius:6px;">
+    AR wordt geladen...
+  </div>
 
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true;"
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-  >
-    <a-assets>
-      <img
-        id="scaryTexture"
-        src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
-        crossorigin="anonymous"
-      >
-    </a-assets>
+    renderer="logarithmicDepthBuffer: true; precision: medium;"
+    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- Bestaande NFT-marker: URL niet veranderen -->
     <a-nft
+      id="foto-marker"
       type="nft"
       url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
+      emitevents="true"
       smooth="true"
       smoothCount="10"
       smoothTolerance="0.01"
-      smoothThreshold="5"
-    >
-      <a-image
-        id="scary"
-        src="#scaryTexture"
-        width="1.6"
-        height="1"
-        position="0 0 0.01"
-        visible="false"
-        material="shader: flat; transparent: true; opacity: 0; side: double"
-        animation__in="property: material.opacity; from: 0; to: 1; dur: 1500; startEvents: fadein"
-        animation__out="property: material.opacity; from: 1; to: 0; dur: 1500; startEvents: fadeout"
-      ></a-image>
+      smoothThreshold="5">
+
+      <a-sphere position="100 150 0"
+        radius="25" color="
+#8b1e3f"></a-sphere>
+
+      <a-sphere position="200 220 0"
+        radius="18" color="
+#24152f"></a-sphere>
+
+      <a-sphere position="280 120 0"
+        radius="22" color="
+#151515"></a-sphere>
+
     </a-nft>
 
     <a-entity camera></a-entity>
@@ -84,77 +52,26 @@
 
   <script>
     const status = document.getElementById("status");
-    const scary = document.getElementById("scary");
-    const scene = document.querySelector("a-scene");
-
-    const TOPIC = "box-of-memories-urk123";
-
-    const bron = new EventSource(
-      "https://ntfy.sh/" + TOPIC + "/sse"
-    );
-
-    let verbergTimer;
-
-    // Tijdelijke cameradiagnose
-    scene.addEventListener("loaded", function () {
-      status.textContent =
-        "Scene geladen; camera wordt gestart...";
-    });
-
-    scene.addEventListener("camera-init", function () {
-      status.textContent =
-        "Camera gestart; NFT-marker wordt geladen...";
-    });
-
-    scene.addEventListener("camera-error", function () {
-      status.textContent =
-        "FOUT: AR.js kan de camera niet starten.";
-    });
-
-    scene.addEventListener("arjs-video-loaded", function () {
-      status.textContent =
-        "Camerabeeld ontvangen; NFT wordt geladen...";
-    });
 
     window.addEventListener("arjs-nft-loaded", function () {
-      status.textContent = "Marker geladen!";
-
-      setTimeout(function () {
-        status.style.display = "none";
-      }, 2500);
+      status.textContent =
+        "Marker geladen! Richt de camera op je foto.";
     });
 
-    // ACCEPT en REMEMBER via ntfy
-    bron.onmessage = function (e) {
-      try {
-        const data = JSON.parse(e.data);
+    const marker = document.getElementById("foto-marker");
 
-        if (data.event !== "message") return;
+    marker.addEventListener("markerFound", function () {
+      status.textContent = "FOTO HERKEND!";
+    });
 
-        if (data.message === "ACCEPT") {
-          clearTimeout(verbergTimer);
+    marker.addEventListener("markerLost", function () {
+      status.textContent = "Foto niet meer zichtbaar.";
+    });
 
-          scary.setAttribute("visible", true);
-          scary.emit("fadein");
-        }
-
-        if (data.message === "REMEMBER") {
-          scary.emit("fadeout");
-
-          verbergTimer = setTimeout(function () {
-            scary.setAttribute("visible", false);
-          }, 1500);
-        }
-      } catch (err) {
-        status.style.display = "block";
-        status.textContent = "Fout: " + err.message;
-      }
-    };
-
-    bron.onerror = function () {
-      console.log("ntfy-verbinding wordt opnieuw geprobeerd.");
-    };
+    window.addEventListener("error", function (event) {
+      status.textContent = "Fout: " + event.message;
+    });
   </script>
+
 </body>
 </html>
-```
