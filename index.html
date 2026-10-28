@@ -37,7 +37,7 @@
     renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- De enge afbeelding laden vanuit de map images -->
+    <!-- Enge afbeelding laden -->
     <a-assets>
       <img
         id="scary-image"
@@ -78,12 +78,13 @@
       <!-- Enge afbeelding over de marker -->
       <a-plane
         id="scary-overlay"
-        position="200 150 2"
+        position="100 150 0"
+        rotation="-90 0 0"
         width="200"
         height="150"
         src="#scary-image"
         visible="false"
-        material="transparent: true; side: double;">
+        material="shader: flat; side: double;">
       </a-plane>
 
     </a-nft>
@@ -99,8 +100,15 @@
     const scaryOverlay = document.getElementById("scary-overlay");
     const scaryImage = document.getElementById("scary-image");
 
-    let testGestart = false;
-    let timerGestart = false;
+    // Controleer of de afbeelding geladen wordt
+    scaryImage.addEventListener("load", function () {
+      console.log("Enge afbeelding geladen.");
+    });
+
+    scaryImage.addEventListener("error", function () {
+      status.textContent =
+        "Fout: enge afbeelding niet gevonden. Controleer het afbeeldingspad.";
+    });
 
     // AR.js geladen
     window.addEventListener("arjs-nft-loaded", function () {
@@ -108,45 +116,19 @@
         "Marker geladen! Richt de camera op je foto.";
     });
 
-    // Afbeelding geladen
-    scaryImage.addEventListener("load", function () {
-      console.log("Enge afbeelding succesvol geladen.");
-    });
-
-    // Afbeelding niet geladen
-    scaryImage.addEventListener("error", function () {
-      status.textContent =
-        "Fout: enge afbeelding niet gevonden. Controleer de URL.";
-    });
-
-    // Marker herkend
+    // Marker herkend: toon de enge afbeelding
     marker.addEventListener("markerFound", function () {
       status.textContent = "FOTO HERKEND!";
-
-      // Tijdelijke test: laat de enge afbeelding
-      // vijf seconden na de eerste herkenning verschijnen.
-      if (!testGestart && !timerGestart) {
-        timerGestart = true;
-
-        status.textContent =
-          "Foto herkend! De enge afbeelding verschijnt over 5 seconden...";
-
-        setTimeout(function () {
-          scaryOverlay.setAttribute("visible", true);
-          testGestart = true;
-
-          status.textContent =
-            "De enge afbeelding is actief!";
-        }, 5000);
-      }
+      scaryOverlay.setAttribute("visible", true);
     });
 
-    // Marker niet meer zichtbaar
+    // Marker verloren: verberg de enge afbeelding
     marker.addEventListener("markerLost", function () {
       status.textContent = "Foto niet meer zichtbaar.";
+      scaryOverlay.setAttribute("visible", false);
     });
 
-    // Algemene JavaScript-fouten
+    // Algemene fouten
     window.addEventListener("error", function (event) {
       status.textContent = "Fout: " + event.message;
     });
