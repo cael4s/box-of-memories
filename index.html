@@ -1,19 +1,33 @@
+```html
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Box of Memories</title>
 
+  <!-- A-Frame -->
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
+
+  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 </head>
-<body style="margin:0; overflow:hidden;">
 
+<body style="margin: 0; overflow: hidden;">
+
+  <!-- Statusmelding -->
   <div id="status" style="
-    position:fixed; top:10px; left:10px; z-index:9999;
-    background:#222; color:white; padding:12px;
-    font:16px Arial; border-radius:6px;">
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 9999;
+    background: #222;
+    color: white;
+    padding: 12px;
+    font: 16px Arial;
+    border-radius: 6px;
+  ">
     AR wordt geladen...
   </div>
 
@@ -23,6 +37,15 @@
     renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
+    <!-- De enge afbeelding laden vanuit de map images -->
+    <a-assets>
+      <img
+        id="scary-image"
+        src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
+        crossorigin="anonymous">
+    </a-assets>
+
+    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -33,41 +56,97 @@
       smoothTolerance="0.01"
       smoothThreshold="5">
 
-      <a-sphere position="100 150 0"
-        radius="25" color="
-#8b1e3f"></a-sphere>
+      <!-- Bestaande AR-objecten -->
+      <a-sphere
+        position="100 150 0"
+        radius="25"
+        color="#8b1e3f">
+      </a-sphere>
 
-      <a-sphere position="200 220 0"
-        radius="18" color="
-#24152f"></a-sphere>
+      <a-sphere
+        position="200 220 0"
+        radius="18"
+        color="#24152f">
+      </a-sphere>
 
-      <a-sphere position="280 120 0"
-        radius="22" color="
-#151515"></a-sphere>
+      <a-sphere
+        position="280 120 0"
+        radius="22"
+        color="#151515">
+      </a-sphere>
+
+      <!-- Enge afbeelding over de marker -->
+      <a-plane
+        id="scary-overlay"
+        position="200 150 2"
+        width="200"
+        height="150"
+        src="#scary-image"
+        visible="false"
+        material="transparent: true; side: double;">
+      </a-plane>
 
     </a-nft>
 
+    <!-- Camera -->
     <a-entity camera></a-entity>
+
   </a-scene>
 
   <script>
     const status = document.getElementById("status");
+    const marker = document.getElementById("foto-marker");
+    const scaryOverlay = document.getElementById("scary-overlay");
+    const scaryImage = document.getElementById("scary-image");
 
+    let testGestart = false;
+    let timerGestart = false;
+
+    // AR.js geladen
     window.addEventListener("arjs-nft-loaded", function () {
       status.textContent =
         "Marker geladen! Richt de camera op je foto.";
     });
 
-    const marker = document.getElementById("foto-marker");
-
-    marker.addEventListener("markerFound", function () {
-      status.textContent = "FOTO HERKEND!";
+    // Afbeelding geladen
+    scaryImage.addEventListener("load", function () {
+      console.log("Enge afbeelding succesvol geladen.");
     });
 
+    // Afbeelding niet geladen
+    scaryImage.addEventListener("error", function () {
+      status.textContent =
+        "Fout: enge afbeelding niet gevonden. Controleer de URL.";
+    });
+
+    // Marker herkend
+    marker.addEventListener("markerFound", function () {
+      status.textContent = "FOTO HERKEND!";
+
+      // Tijdelijke test: laat de enge afbeelding
+      // vijf seconden na de eerste herkenning verschijnen.
+      if (!testGestart && !timerGestart) {
+        timerGestart = true;
+
+        status.textContent =
+          "Foto herkend! De enge afbeelding verschijnt over 5 seconden...";
+
+        setTimeout(function () {
+          scaryOverlay.setAttribute("visible", true);
+          testGestart = true;
+
+          status.textContent =
+            "De enge afbeelding is actief!";
+        }, 5000);
+      }
+    });
+
+    // Marker niet meer zichtbaar
     marker.addEventListener("markerLost", function () {
       status.textContent = "Foto niet meer zichtbaar.";
     });
 
+    // Algemene JavaScript-fouten
     window.addEventListener("error", function (event) {
       status.textContent = "Fout: " + event.message;
     });
@@ -75,3 +154,4 @@
 
 </body>
 </html>
+```
