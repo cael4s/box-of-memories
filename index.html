@@ -1,22 +1,22 @@
-
+```html
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Box of Memories - AR</title>
+  <title>Box of Memories</title>
 
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-
-  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       overflow: hidden;
+      width: 100%;
+      height: 100%;
       font-family: Arial, sans-serif;
     }
 
@@ -24,46 +24,52 @@
       position: fixed;
       top: 12px;
       left: 12px;
-      z-index: 100;
+      right: 12px;
+      z-index: 1000;
       padding: 10px 14px;
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.75);
       color: white;
       font-size: 14px;
-      max-width: 85%;
-      line-height: 1.4;
+      text-align: center;
     }
   </style>
 </head>
 
 <body>
-  <div id="status">Box of Memories wordt gestart...</div>
+  <div id="status">AR wordt geladen...</div>
+
+  <!-- Afbeelding die als overlay wordt getoond -->
+  <img
+    id="scary-image"
+    src="https://cael4s.github.io/box-of-memories/images/karrekienherken.jpg"
+    crossorigin="anonymous"
+    style="display: none;"
+  >
 
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="alpha: true; colorManagement: true"
+    renderer="logarithmicDepthBuffer: true;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
     <a-assets>
       <img
-        id="scary-image"
-        src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
+        id="scary-texture"
+        src="https://cael4s.github.io/box-of-memories/images/karrekienherken.jpg"
         crossorigin="anonymous"
       >
     </a-assets>
 
-    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
-      url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
+      url="https://cael4s.github.io/box-of-memories/markers/karrekienherken"
       smooth="true"
       smoothCount="10"
-      smoothTolerance="0.01"
+      smoothTolerance=".01"
       smoothThreshold="5"
     >
-      <!-- Bestaande positie, rotatie en afmetingen -->
       <a-plane
         id="scary-overlay"
         position="40 30 0"
@@ -73,7 +79,7 @@
         visible="false"
         material="
           shader: flat;
-          src: #scary-image;
+          src: #scary-texture;
           transparent: true;
           opacity: 0;
           side: double;
@@ -86,169 +92,118 @@
   </a-scene>
 
   <script>
-    // ==========================================
-    // INSTELLINGEN
-    // ==========================================
-
+    // Gebruik hetzelfde topic als in je Python-script.
     const NTFY_TOPIC = "box-of-memories-urk123";
-    const NTFY_URL = `https://ntfy.sh/${NTFY_TOPIC}/sse`;
 
-    const marker = document.querySelector("#foto-marker");
-    const overlay = document.querySelector("#scary-overlay");
-    const image = document.querySelector("#scary-image");
-    const status = document.querySelector("#status");
+    const statusElement = document.getElementById("status");
+    const overlay = document.getElementById("scary-overlay");
+    const marker = document.getElementById("foto-marker");
 
-    const FADE_DURATION = 1200;
+    let fadeAnimation = null;
 
-    let plaagActief = false;
-    let markerZichtbaar = false;
-    let animationToken = 0;
-
-    function setStatus(tekst) {
-      status.textContent = tekst;
+    function setStatus(message) {
+      statusElement.textContent = message;
     }
 
-    // ==========================================
-    // FADE-IN EN FADE-OUT
-    // ==========================================
+    function fadeNaar(doelOpacity, duur = 800) {
+      if (!overlay) return;
 
-    function fadeNaar(doel) {
-      const token = ++animationToken;
-
-      if (doel > 0) {
-        overlay.setAttribute("visible", true);
+      if (fadeAnimation) {
+        fadeAnimation.cancel();
       }
 
-      const materiaal = overlay.getAttribute("material");
-      const begin = Number(materiaal.opacity ?? 0);
-      const startTijd = performance.now();
+      overlay.setAttribute("visible", true);
 
-      function animeer(nu) {
-        if (token !== animationToken) return;
+      const huidigeOpacity =
+        Number(overlay.getAttribute("material").opacity) || 0;
 
-        const voortgang = Math.min(
-          (nu - startTijd) / FADE_DURATION,
-          1
-        );
-
-        const soepel =
-          voortgang * voortgang * (3 - 2 * voortgang);
-
-        const opacity = begin + (doel - begin) * soepel;
-
-        overlay.setAttribute("material", "opacity", opacity);
-
-        if (voortgang < 1) {
-          requestAnimationFrame(animeer);
-        } else {
-          overlay.setAttribute("material", "opacity", doel);
-
-          if (doel === 0) {
-            overlay.setAttribute("visible", false);
-          }
+      fadeAnimation = overlay.animate(
+        [
+          { opacity: huidigeOpacity },
+          { opacity: doelOpacity }
+        ],
+        {
+          duration: duur,
+          easing: "ease-in-out",
+          fill: "forwards"
         }
-      }
+      );
 
-      requestAnimationFrame(animeer);
-    }
+      fadeAnimation.onfinish = () => {
+        overlay.setAttribute("material", "opacity", doelOpacity);
 
-    function updateAR() {
-      if (plaagActief && markerZichtbaar) {
-        setStatus("ACCEPT — de plaag is begonnen");
-        fadeNaar(1);
-      } else {
-        fadeNaar(0);
-
-        if (plaagActief) {
-          setStatus("ACCEPT actief — zoek de marker");
-        } else {
-          setStatus("REMEMBER — afbeelding verborgen");
+        if (doelOpacity === 0) {
+          overlay.setAttribute("visible", false);
         }
+
+        fadeAnimation = null;
+      };
+    }
+
+    function verwerkBericht(bericht) {
+      const actie = String(
+        bericht.message || bericht
+      ).trim().toUpperCase();
+
+      console.log("ntfy-bericht ontvangen:", actie);
+
+      if (actie === "ACCEPT") {
+        fadeNaar(1, 800);
+        setStatus("Herinnering geopend");
+      } else if (actie === "REMEMBER") {
+        fadeNaar(0, 800);
+        setStatus("Herinnering opgeborgen");
       }
     }
 
-    // ==========================================
-    // MARKER HERKEND OF VERLOREN
-    // ==========================================
+    // Luister naar berichten van het Python-script via ntfy.
+    const ntfyUrl =
+      `https://ntfy.sh/${NTFY_TOPIC}/sse`;
+
+    const ntfy = new EventSource(ntfyUrl);
+
+    ntfy.onopen = () => {
+      setStatus("Verbonden — wacht op knoppen");
+      console.log("Verbonden met ntfy");
+    };
+
+    ntfy.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        verwerkBericht(data);
+      } catch (error) {
+        console.error("Bericht kon niet worden gelezen:", error);
+      }
+    };
+
+    ntfy.onerror = (error) => {
+      setStatus("ntfy-verbinding herstellen...");
+      console.error("ntfy-verbindingsfout:", error);
+    };
+
+    // Status van de NFT-marker.
+    marker.addEventListener("loaded", () => {
+      console.log("NFT-marker geladen");
+    });
 
     marker.addEventListener("markerFound", () => {
-      markerZichtbaar = true;
-      updateAR();
+      setStatus("Marker herkend");
+      console.log("Marker herkend");
     });
 
     marker.addEventListener("markerLost", () => {
-      markerZichtbaar = false;
-      updateAR();
+      setStatus("Richt de camera op de afbeelding");
+      console.log("Marker uit beeld");
     });
 
-    // ==========================================
-    // NTfy SSE-VERBINDING
-    // ==========================================
-
-    function luisterNaarNtfy() {
-      setStatus("Verbinden met ntfy...");
-
-      const verbinding = new EventSource(NTFY_URL);
-
-      verbinding.onopen = () => {
-        setStatus("Verbonden met ntfy — wacht op knoppen");
-        console.log("ntfy-verbinding geopend");
-      };
-
-      verbinding.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.event !== "message") return;
-
-          const bericht = String(data.message || "")
-            .trim()
-            .toUpperCase();
-
-          console.log("ntfy-bericht:", bericht);
-
-          if (bericht === "ACCEPT") {
-            plaagActief = true;
-            updateAR();
-          } else if (bericht === "REMEMBER") {
-            plaagActief = false;
-            updateAR();
-          }
-        } catch (fout) {
-          console.error("Bericht verwerken mislukt:", fout);
-        }
-      };
-
-      verbinding.onerror = () => {
-        setStatus("ntfy-verbinding herstellen...");
-        console.warn("ntfy probeert opnieuw te verbinden");
-        // EventSource probeert automatisch opnieuw verbinding te maken.
-      };
-
-      return verbinding;
-    }
-
-    // ==========================================
-    // STARTSTATUS
-    // ==========================================
-
+    // Begin met de overlay verborgen.
     overlay.setAttribute("visible", false);
     overlay.setAttribute("material", "opacity", 0);
 
-    image.addEventListener("load", () => {
-      console.log("AR-afbeelding geladen:", image.src);
-    });
-
-    image.addEventListener("error", () => {
-      setStatus("De AR-afbeelding kon niet worden geladen.");
-      console.error("Afbeelding laden mislukt:", image.src);
-    });
-
-    const ntfyVerbinding = luisterNaarNtfy();
-
-    window.addEventListener("pagehide", () => {
-      ntfyVerbinding.close();
+    window.addEventListener("load", () => {
+      setStatus("Camera en AR worden gestart...");
     });
   </script>
 </body>
 </html>
+```
