@@ -42,6 +42,7 @@
     renderer="alpha: true; colorManagement: true"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
+    <!-- Afbeelding -->
     <a-assets>
       <img
         id="scary-image"
@@ -50,6 +51,7 @@
       >
     </a-assets>
 
+    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -59,11 +61,11 @@
       smoothTolerance="0.01"
       smoothThreshold="5"
     >
-      <!-- Afbeelding plat op de marker -->
+      <!-- Afbeelding 180 graden omgedraaid -->
       <a-plane
         id="scary-overlay"
         position="0 0 1"
-        rotation="0 0 0"
+        rotation="0 180 0"
         width="100"
         height="100"
         visible="false"
@@ -73,6 +75,7 @@
           transparent: true;
           opacity: 0;
           side: double;
+          depthWrite: false;
         "
       ></a-plane>
     </a-nft>
@@ -106,7 +109,6 @@
       stopFade();
 
       markerVisible = true;
-
       overlay.setAttribute("visible", true);
       setOpacity(0);
 
@@ -139,13 +141,15 @@
       fadeFrame = requestAnimationFrame(animate);
     }
 
+    // Marker herkend
     marker.addEventListener("markerFound", function () {
       if (markerVisible) return;
 
-      status.textContent = "Marker herkend — afbeelding verschijnt";
+      status.textContent = "Marker herkend!";
       fadeIn();
     });
 
+    // Marker verdwenen
     marker.addEventListener("markerLost", function () {
       markerVisible = false;
       stopFade();
@@ -156,14 +160,15 @@
       status.textContent = "Richt de camera op de marker";
     });
 
+    // Controleer of de afbeelding geladen is
     image.addEventListener("load", function () {
-      console.log("Afbeelding succesvol geladen:", image.src);
+      console.log("Afbeelding geladen:", image.src);
       status.textContent = "Afbeelding geladen — zoek de marker";
     });
 
     image.addEventListener("error", function () {
       status.textContent = "Fout: afbeelding niet geladen";
-      console.error("Afbeelding kon niet worden geladen:", image.src);
+      console.error("Kon afbeelding niet laden:", image.src);
     });
 
     window.addEventListener("load", function () {
