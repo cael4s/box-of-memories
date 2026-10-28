@@ -28,7 +28,7 @@
       border-radius: 6px;
     }
 
-    /* Afbeelding boven op de camerabeelden */
+    /* Enge afbeelding over het volledige camerascherm */
     #scary-screen {
       display: none;
       position: fixed;
@@ -46,11 +46,11 @@
 
   <div id="status">AR wordt geladen...</div>
 
-  <!-- Schermvullende afbeelding boven op de camera -->
+  <!-- Enge afbeelding -->
   <img
     id="scary-screen"
     src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
-    alt="De enge herinnering">
+    alt="Enge herinnering">
 
   <a-scene
     embedded
@@ -58,7 +58,7 @@
     renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- Je bestaande NFT-marker blijft behouden -->
+    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -69,7 +69,7 @@
       smoothTolerance="0.01"
       smoothThreshold="5">
 
-      <!-- Bestaande objecten -->
+      <!-- Bestaande AR-objecten -->
       <a-sphere
         position="100 150 0"
         radius="25"
@@ -99,14 +99,14 @@
     const marker = document.getElementById("foto-marker");
     const scaryScreen = document.getElementById("scary-screen");
 
-    // Controleer of de enge afbeelding geladen is
+    // Controleer of de afbeelding geladen is
     scaryScreen.addEventListener("load", function () {
       console.log("Enge afbeelding geladen.");
     });
 
     scaryScreen.addEventListener("error", function () {
       status.textContent =
-        "Fout: de enge afbeelding kon niet worden geladen.";
+        "Fout: enge afbeelding kon niet worden geladen.";
     });
 
     // AR.js geladen
@@ -115,18 +115,19 @@
         "Marker geladen! Richt de camera op je foto.";
     });
 
-    // Marker herkend: toon afbeelding op het camerascherm
+    // DIRECT de afbeelding tonen bij markerherkenning
     marker.addEventListener("markerFound", function () {
-      status.textContent = "FOTO HERKEND!";
       scaryScreen.style.display = "block";
+      status.textContent = "FOTO HERKEND!";
     });
 
-    // Marker verloren: verberg afbeelding
+    // Afbeelding verbergen als de marker verdwijnt
     marker.addEventListener("markerLost", function () {
-      status.textContent = "Foto niet meer zichtbaar.";
       scaryScreen.style.display = "none";
+      status.textContent = "Foto niet meer zichtbaar.";
     });
 
+    // Algemene fouten
     window.addEventListener("error", function (event) {
       status.textContent = "Fout: " + event.message;
     });
