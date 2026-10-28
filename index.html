@@ -62,22 +62,24 @@
       smoothThreshold="5"
     >
       <!-- Afbeelding 180 graden omgedraaid -->
-      <a-plane
-        id="scary-overlay"
-        position="0 0 1"
-        rotation="0 180 0"
-        width="100"
-        height="100"
-        visible="false"
-        material="
-          shader: flat;
-          src: #scary-image;
-          transparent: true;
-          opacity: 0;
-          side: double;
-          depthWrite: false;
-        "
-      ></a-plane>
+      ```html
+<a-plane
+  id="scary-overlay"
+  position="0 0 1"
+  rotation="-90 180 0"
+  width="100"
+  height="100"
+  visible="false"
+  material="
+    shader: flat;
+    src: #scary-image;
+    transparent: true;
+    opacity: 0;
+    side: double;
+    depthWrite: false;
+  "
+></a-plane>
+```
     </a-nft>
 
     <a-entity camera></a-entity>
