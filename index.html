@@ -34,7 +34,6 @@
       text-align: center;
     }
 
-    /* Large message displayed over the camera */
     #message-overlay {
       position: fixed;
       inset: 0;
@@ -44,7 +43,7 @@
       justify-content: center;
       box-sizing: border-box;
       padding: 30px;
-      background: rgba(0, 0, 0, 0.72);
+      background: rgba(0, 0, 0, 0.78);
       color: white;
       text-align: center;
       font-size: clamp(28px, 7vw, 56px);
@@ -74,6 +73,7 @@
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
     <a-assets>
+      <!-- Original image shown as the AR overlay -->
       <img
         id="scary-texture"
         src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
@@ -81,7 +81,7 @@
       >
     </a-assets>
 
-    <!-- New image is used only for NFT marker recognition -->
+    <!-- New NFT marker used only for recognition -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -113,6 +113,7 @@
   </a-scene>
 
   <script>
+    // Must match the topic used by box_of_memories.py
     const NTFY_TOPIC = "box-of-memories-urk123";
 
     const statusElement = document.getElementById("status");
@@ -123,6 +124,9 @@
     let fadeAnimation = null;
     let messageTimer = null;
     let messageDelayTimer = null;
+
+    // The experience starts in REMEMBER mode.
+    let currentMode = "REMEMBER";
 
     function setStatus(message) {
       statusElement.textContent = message;
@@ -147,7 +151,7 @@
           { opacity: targetOpacity }
         ],
         {
-          duration,
+          duration: duration,
           easing: "ease-in-out",
           fill: "forwards"
         }
@@ -164,8 +168,7 @@
       };
     }
 
-    // Show the selected message after a 3-second delay.
-    // Keep it visible for 3 seconds, then hide it.
+    // Wait 3 seconds, show the message for 3 seconds, then hide it.
     function showMessageAfterDelay(message) {
       clearTimeout(messageDelayTimer);
       clearTimeout(messageTimer);
@@ -191,17 +194,19 @@
       console.log("ntfy message received:", action);
 
       if (action === "ACCEPT") {
+        currentMode = "ACCEPT";
+
         fadeNaar(1, 800);
-        setStatus("Memory opened");
+        setStatus("Accept — creating something new");
 
         showMessageAfterDelay(
           "... I take the new and make something out of it"
         );
-      }
+      } else if (action === "REMEMBER") {
+        currentMode = "REMEMBER";
 
-      if (action === "REMEMBER") {
         fadeNaar(0, 800);
-        setStatus("Holding on to the past");
+        setStatus("Remember — holding on to what once was");
 
         showMessageAfterDelay(
           "... I hold on to what once was"
@@ -214,7 +219,12 @@
     const ntfy = new EventSource(ntfyUrl);
 
     ntfy.onopen = () => {
-      setStatus("Connected — waiting for buttons");
+      setStatus(
+        currentMode === "REMEMBER"
+          ? "Remember — holding on to what once was"
+          : "Connected — waiting for buttons"
+      );
+
       console.log("Connected to ntfy");
     };
 
@@ -232,18 +242,25 @@
       console.error("ntfy connection error:", error);
     };
 
-    // NFT marker tracking status.
+    // Marker tracking status.
     marker.addEventListener("markerFound", () => {
-      setStatus("Marker recognized");
+      if (currentMode === "REMEMBER") {
+        setStatus("Remember — holding on to what once was");
+      } else {
+        setStatus("Marker recognized");
+      }
     });
 
     marker.addEventListener("markerLost", () => {
       setStatus("Point the camera at the image");
     });
 
-    // Start with the image overlay hidden.
+    // Initial state: REMEMBER.
+    // The overlay image starts hidden.
     overlay.setAttribute("visible", false);
     overlay.setAttribute("material", "opacity", 0);
+    currentMode = "REMEMBER";
+    setStatus("Remember — holding on to what once was");
   </script>
 </body>
 </html>
