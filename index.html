@@ -7,7 +7,10 @@
 
   <title>Box of Memories - AR</title>
 
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
+  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
@@ -27,7 +30,7 @@
       background: rgba(0, 0, 0, 0.8);
       color: white;
       font-size: 14px;
-      max-width: 75%;
+      max-width: 80%;
     }
 
     #connect-serial {
@@ -38,10 +41,15 @@
       padding: 12px 16px;
       border: 0;
       border-radius: 8px;
-      background: #ffffff;
-      color: #111111;
+      background: white;
+      color: #111;
       font-size: 14px;
       cursor: pointer;
+    }
+
+    #connect-serial:disabled {
+      opacity: 0.7;
+      cursor: default;
     }
   </style>
 </head>
@@ -64,6 +72,7 @@
       >
     </a-assets>
 
+    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -73,6 +82,7 @@
       smoothTolerance="0.01"
       smoothThreshold="5"
     >
+      <!-- Jouw ingestelde positie, rotatie en afmetingen -->
       <a-plane
         id="scary-overlay"
         position="40 30 0"
@@ -107,7 +117,11 @@
     let plaagActief = false;
     let markerZichtbaar = false;
     let fadeFrame = null;
+
+    // Arduino-seriële verbinding.
+    let serialPort = null;
     let serialReader = null;
+    let serialBuffer = "";
 
     function setOpacity(value) {
       overlay.setAttribute("material", "opacity", value);
@@ -120,14 +134,14 @@
       }
     }
 
-    function verbergAfbeelding() {
-      stopFade();
-      setOpacity(0);
-      overlay.setAttribute("visible", false);
-    }
-
+    // Vloeiende fade-in.
     function fadeIn() {
       stopFade();
+
+      if (!plaagActief || !markerZichtbaar) {
+        fadeOut();
+        return;
+      }
 
       overlay.setAttribute("visible", true);
       setOpacity(0);
@@ -135,11 +149,9 @@
       const startTime = performance.now();
 
       function animate(now) {
-        // Stop wanneer ACCEPT niet meer actief is
-        // of de marker uit beeld verdwenen is.
         if (!plaagActief || !markerZichtbaar) {
           fadeFrame = null;
-          verbergAfbeelding();
+          fadeOut();
           return;
         }
 
@@ -148,8 +160,9 @@
           1
         );
 
-        // Soepele fade-in
+        // Smoothstep voor een zachte overgang.
         const eased = progress * progress * (3 - 2 * progress);
+
         setOpacity(eased);
 
         if (progress < 1) {
@@ -163,18 +176,63 @@
       fadeFrame = requestAnimationFrame(animate);
     }
 
-    // Bepaal of de AR-afbeelding zichtbaar mag zijn.
+    // Vloeiende fade-out.
+    function fadeOut() {
+      stopFade();
+
+      const material = overlay.getAttribute("material");
+      const startOpacity = material
+        ? Number(material.opacity)
+        : 0;
+
+      if (
+        !overlay.getAttribute("visible") ||
+        startOpacity <= 0
+      ) {
+        setOpacity(0);
+        overlay.setAttribute("visible", false);
+        return;
+      }
+
+      const startTime = performance.now();
+
+      function animate(now) {
+        const progress = Math.min(
+          (now - startTime) / FADE_DURATION,
+          1
+        );
+
+        const eased = progress * progress * (3 - 2 * progress);
+
+        setOpacity(startOpacity * (1 - eased));
+
+        if (progress < 1) {
+          fadeFrame = requestAnimationFrame(animate);
+        } else {
+          setOpacity(0);
+          overlay.setAttribute("visible", false);
+          fadeFrame = null;
+        }
+      }
+
+      fadeFrame = requestAnimationFrame(animate);
+    }
+
+    // Pas de afbeelding aan de huidige toestand aan.
     function updateAR() {
       if (plaagActief && markerZichtbaar) {
-        status.textContent = "ACCEPT — de plaag is begonnen";
+        status.textContent =
+          "ACCEPT — de plaag is begonnen";
         fadeIn();
       } else {
-        verbergAfbeelding();
+        fadeOut();
 
         if (plaagActief) {
-          status.textContent = "ACCEPT actief — zoek de marker";
+          status.textContent =
+            "ACCEPT actief — zoek de marker";
         } else {
-          status.textContent = "REMEMBER — normale foto zichtbaar";
+          status.textContent =
+            "REMEMBER — normale foto zichtbaar";
         }
       }
     }
@@ -183,44 +241,46 @@
     function verwerkBericht(bericht) {
       bericht = bericht.trim();
 
+      if (!bericht) return;
+
       console.log("Arduino:", bericht);
 
       if (bericht === "ACCEPT||1") {
         plaagActief = true;
         updateAR();
-      }
-
-      if (bericht === "REMEMBER||1") {
+      } else if (bericht === "REMEMBER||1") {
         plaagActief = false;
         updateAR();
       }
     }
 
-    // Verbind via USB met de Arduino.
+    // Verbind de Arduino via Web Serial.
     async function verbindArduino() {
       if (!("serial" in navigator)) {
         status.textContent =
-          "Web Serial niet beschikbaar. Gebruik Chrome of Edge op een computer.";
+          "Web Serial niet beschikbaar. Gebruik Chrome of Edge op HTTPS.";
         return;
       }
 
       try {
-        const port = await navigator.serial.requestPort();
-
-        await port.open({ baudRate: 9600 });
-
-        connectButton.textContent = "Arduino verbonden";
         connectButton.disabled = true;
+        status.textContent = "Selecteer de Arduino-poort...";
+
+        serialPort = await navigator.serial.requestPort();
+
+        // Moet overeenkomen met Serial.begin(9600).
+        await serialPort.open({ baudRate: 9600 });
 
         status.textContent =
-          "Arduino verbonden — REMEMBER-modus actief";
+          "Arduino verbonden — REMEMBER-modus";
+        connectButton.textContent = "Arduino verbonden";
 
-        // Lees seriële tekstregels van de Arduino.
         const decoder = new TextDecoderStream();
-        const readableClosed = port.readable.pipeTo(decoder.writable);
-        serialReader = decoder.readable.getReader();
+        const readableClosed =
+          serialPort.readable.pipeTo(decoder.writable);
 
-        let buffer = "";
+        serialReader = decoder.readable.getReader();
+        serialBuffer = "";
 
         try {
           while (true) {
@@ -228,15 +288,13 @@
 
             if (done) break;
 
-            buffer += value;
+            serialBuffer += value;
 
-            const regels = buffer.split(/\r?\n/);
-            buffer = regels.pop() || "";
+            const regels = serialBuffer.split(/\r?\n/);
+            serialBuffer = regels.pop() || "";
 
             for (const regel of regels) {
-              if (regel.trim()) {
-                verwerkBericht(regel);
-              }
+              verwerkBericht(regel);
             }
           }
         } finally {
@@ -244,38 +302,69 @@
           await readableClosed.catch(() => {});
         }
       } catch (error) {
-        console.error("Seriële verbinding:", error);
+        console.error("Arduino-verbinding mislukt:", error);
+
         status.textContent =
-          "Verbinding mislukt. Controleer USB, poort en seriële instellingen.";
+          "Verbinding mislukt: " +
+          (error.message || "controleer de poort en USB-verbinding");
+
+        connectButton.disabled = false;
+        connectButton.textContent = "Opnieuw verbinden";
       }
     }
 
     connectButton.addEventListener("click", verbindArduino);
 
-    // Marker herkend: toon de afbeelding alleen als ACCEPT actief is.
+    // Marker herkend.
     marker.addEventListener("markerFound", function () {
       markerZichtbaar = true;
       updateAR();
     });
 
-    // Marker verloren: verberg de AR-afbeelding.
-    // De ACCEPT-status blijft behouden.
+    // Marker verloren.
     marker.addEventListener("markerLost", function () {
       markerZichtbaar = false;
       updateAR();
     });
 
+    // Controleer of de afbeelding geladen is.
     image.addEventListener("load", function () {
-      console.log("AR-afbeelding geladen.");
+      console.log("AR-afbeelding geladen:", image.src);
     });
 
     image.addEventListener("error", function () {
-      status.textContent = "De AR-afbeelding kon niet worden geladen.";
+      status.textContent =
+        "De AR-afbeelding kon niet worden geladen.";
       console.error("Afbeelding laden mislukt:", image.src);
     });
 
-    // Verberg de AR-afbeelding bij het opstarten.
-    verbergAfbeelding();
+    // Extra bescherming: start onzichtbaar.
+    verbergBijStart();
+
+    function verbergBijStart() {
+      stopFade();
+      setOpacity(0);
+      overlay.setAttribute("visible", false);
+    }
+
+    // Bij het sluiten van de pagina de lezer opruimen.
+    window.addEventListener("pagehide", async function () {
+      try {
+        if (serialReader) {
+          await serialReader.cancel();
+        }
+      } catch (error) {
+        console.warn("Seriële lezer afsluiten:", error);
+      }
+
+      try {
+        if (serialPort && serialPort.readable) {
+          await serialPort.close();
+        }
+      } catch (error) {
+        console.warn("Seriële poort afsluiten:", error);
+      }
+    });
   </script>
 </body>
 </html>
