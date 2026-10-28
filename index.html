@@ -42,7 +42,7 @@
     renderer="alpha: true; colorManagement: true"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
-    <!-- Afbeelding -->
+    <!-- Afbeelding laden -->
     <a-assets>
       <img
         id="scary-image"
@@ -61,27 +61,28 @@
       smoothTolerance="0.01"
       smoothThreshold="5"
     >
-      <!-- Afbeelding 180 graden omgedraaid -->
-      ```html
-<a-plane
-  id="scary-overlay"
-  position="0 0 1"
-  rotation="-90 180 0"
-  width="100"
-  height="100"
-  visible="false"
-  material="
-    shader: flat;
-    src: #scary-image;
-    transparent: true;
-    opacity: 0;
-    side: double;
-    depthWrite: false;
-  "
-></a-plane>
-```
+
+      <!-- Afbeelding horizontaal boven het A4-papier -->
+      <a-plane
+        id="scary-overlay"
+        position="0 0 1"
+        rotation="-90 180 0"
+        width="100"
+        height="100"
+        visible="false"
+        material="
+          shader: flat;
+          src: #scary-image;
+          transparent: true;
+          opacity: 0;
+          side: double;
+          depthWrite: false;
+        "
+      ></a-plane>
+
     </a-nft>
 
+    <!-- Camera -->
     <a-entity camera></a-entity>
   </a-scene>
 
@@ -107,6 +108,7 @@
       overlay.setAttribute("material", "opacity", value);
     }
 
+    // Fade-in wanneer de marker wordt herkend
     function fadeIn() {
       stopFade();
 
@@ -127,7 +129,7 @@
           1
         );
 
-        // Soepele fade-in
+        // Soepele overgang van transparant naar zichtbaar
         const eased = progress * progress * (3 - 2 * progress);
 
         setOpacity(eased);
@@ -151,7 +153,7 @@
       fadeIn();
     });
 
-    // Marker verdwenen
+    // Marker niet meer zichtbaar
     marker.addEventListener("markerLost", function () {
       markerVisible = false;
       stopFade();
@@ -159,18 +161,19 @@
       setOpacity(0);
       overlay.setAttribute("visible", false);
 
-      status.textContent = "Richt de camera op de marker";
+      status.textContent = "Richt de camera op het A4-papier";
     });
 
-    // Controleer of de afbeelding geladen is
+    // Afbeelding geladen
     image.addEventListener("load", function () {
       console.log("Afbeelding geladen:", image.src);
       status.textContent = "Afbeelding geladen — zoek de marker";
     });
 
+    // Fout bij het laden van de afbeelding
     image.addEventListener("error", function () {
-      status.textContent = "Fout: afbeelding niet geladen";
-      console.error("Kon afbeelding niet laden:", image.src);
+      status.textContent = "Afbeelding kon niet worden geladen";
+      console.error("Afbeelding niet geladen:", image.src);
     });
 
     window.addEventListener("load", function () {
