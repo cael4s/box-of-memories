@@ -14,9 +14,9 @@
     html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
       width: 100%;
       height: 100%;
+      overflow: hidden;
       font-family: Arial, sans-serif;
     }
 
@@ -39,28 +39,22 @@
 <body>
   <div id="status">AR wordt geladen...</div>
 
-  <!-- Afbeelding die als overlay wordt getoond -->
-  <img
-    id="scary-image"
-    src="https://cael4s.github.io/box-of-memories/images/karrekienherken.jpg"
-    crossorigin="anonymous"
-    style="display: none;"
-  >
-
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
     renderer="logarithmicDepthBuffer: true;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
+    <!-- Alleen de OUDE afbeelding wordt als overlay gebruikt -->
     <a-assets>
       <img
         id="scary-texture"
-        src="https://cael4s.github.io/box-of-memories/images/karrekienherken.jpg"
+        src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
         crossorigin="anonymous"
       >
     </a-assets>
 
+    <!-- NIEUWE marker: karrekienherken -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -70,6 +64,7 @@
       smoothTolerance=".01"
       smoothThreshold="5"
     >
+      <!-- Overlay: positie en afmetingen behouden -->
       <a-plane
         id="scary-overlay"
         position="40 30 0"
@@ -92,7 +87,7 @@
   </a-scene>
 
   <script>
-    // Gebruik hetzelfde topic als in je Python-script.
+    // Dit moet overeenkomen met het topic in box_of_memories.py
     const NTFY_TOPIC = "box-of-memories-urk123";
 
     const statusElement = document.getElementById("status");
@@ -110,12 +105,13 @@
 
       if (fadeAnimation) {
         fadeAnimation.cancel();
+        fadeAnimation = null;
       }
-
-      overlay.setAttribute("visible", true);
 
       const huidigeOpacity =
         Number(overlay.getAttribute("material").opacity) || 0;
+
+      overlay.setAttribute("visible", true);
 
       fadeAnimation = overlay.animate(
         [
@@ -140,26 +136,27 @@
       };
     }
 
-    function verwerkBericht(bericht) {
-      const actie = String(
-        bericht.message || bericht
-      ).trim().toUpperCase();
+    // Verwerk berichten die via ntfy van Python binnenkomen
+    function verwerkBericht(data) {
+      const actie = String(data.message || "")
+        .trim()
+        .toUpperCase();
 
       console.log("ntfy-bericht ontvangen:", actie);
 
       if (actie === "ACCEPT") {
         fadeNaar(1, 800);
         setStatus("Herinnering geopend");
-      } else if (actie === "REMEMBER") {
+      }
+
+      if (actie === "REMEMBER") {
         fadeNaar(0, 800);
         setStatus("Herinnering opgeborgen");
       }
     }
 
-    // Luister naar berichten van het Python-script via ntfy.
-    const ntfyUrl =
-      `https://ntfy.sh/${NTFY_TOPIC}/sse`;
-
+    // Verbinding met ntfy
+    const ntfyUrl = `https://ntfy.sh/${NTFY_TOPIC}/sse`;
     const ntfy = new EventSource(ntfyUrl);
 
     ntfy.onopen = () => {
@@ -181,11 +178,7 @@
       console.error("ntfy-verbindingsfout:", error);
     };
 
-    // Status van de NFT-marker.
-    marker.addEventListener("loaded", () => {
-      console.log("NFT-marker geladen");
-    });
-
+    // NFT-markerstatus
     marker.addEventListener("markerFound", () => {
       setStatus("Marker herkend");
       console.log("Marker herkend");
@@ -196,7 +189,7 @@
       console.log("Marker uit beeld");
     });
 
-    // Begin met de overlay verborgen.
+    // Start met de overlay verborgen
     overlay.setAttribute("visible", false);
     overlay.setAttribute("material", "opacity", 0);
 
