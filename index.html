@@ -7,7 +7,10 @@
 
   <title>Box of Memories</title>
 
+  <!-- A-Frame -->
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.6.0/dist/aframe-master.min.js"></script>
+
+  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
@@ -32,9 +35,7 @@
 
 <body>
 
-  <div id="status">
-    AR wordt geladen...
-  </div>
+  <div id="status">AR wordt geladen...</div>
 
   <a-scene
     embedded
@@ -42,7 +43,7 @@
     renderer="logarithmicDepthBuffer: true; precision: medium;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- Enge afbeelding laden -->
+    <!-- Afbeelding laden -->
     <a-assets>
       <img
         id="scary-image"
@@ -50,7 +51,7 @@
         crossorigin="anonymous">
     </a-assets>
 
-    <!-- Bestaande NFT-marker -->
+    <!-- NFT-marker -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -61,7 +62,7 @@
       smoothTolerance="0.01"
       smoothThreshold="5">
 
-      <!-- Bestaande objecten -->
+      <!-- Bestaande AR-objecten -->
       <a-sphere
         position="100 150 0"
         radius="25"
@@ -80,11 +81,7 @@
         color="#151515">
       </a-sphere>
 
-      <!--
-        Enge afbeelding in de 3D-ruimte.
-        Het vlak volgt de perspectiefbeweging van de marker.
-        De afmetingen zijn voorlopige waarden.
-      -->
+      <!-- Enge afbeelding met fade-in -->
       <a-plane
         id="scary-overlay"
         position="200 150 1"
@@ -93,7 +90,8 @@
         height="300"
         src="#scary-image"
         visible="false"
-        material="shader: flat; side: double;">
+        material="shader: flat; side: double; transparent: true; opacity: 0"
+        animation__fade="property: material.opacity; from: 0; to: 1; dur: 1200; startEvents: fadeStart; easing: easeInOutSine">
       </a-plane>
 
     </a-nft>
@@ -107,6 +105,8 @@
     const marker = document.getElementById("foto-marker");
     const scaryOverlay = document.getElementById("scary-overlay");
     const scaryImage = document.getElementById("scary-image");
+
+    let isVisible = false;
 
     // Controleer of de afbeelding geladen is
     scaryImage.addEventListener("load", function () {
@@ -124,18 +124,36 @@
         "Marker geladen! Richt de camera op je foto.";
     });
 
-    // Afbeelding direct zichtbaar zodra de marker wordt herkend
+    // Marker herkend
     marker.addEventListener("markerFound", function () {
-      scaryOverlay.setAttribute("visible", true);
       status.textContent = "FOTO HERKEND!";
+
+      if (isVisible) return;
+      isVisible = true;
+
+      // Start onzichtbaar
+      scaryOverlay.setAttribute("visible", true);
+      scaryOverlay.setAttribute("material", {
+        shader: "flat",
+        side: "double",
+        transparent: true,
+        opacity: 0
+      });
+
+      // Laat de afbeelding geleidelijk verschijnen
+      scaryOverlay.emit("fadeStart");
     });
 
-    // Afbeelding verbergen als de marker uit beeld verdwijnt
+    // Marker verloren
     marker.addEventListener("markerLost", function () {
-      scaryOverlay.setAttribute("visible", false);
       status.textContent = "Foto niet meer zichtbaar.";
+
+      isVisible = false;
+      scaryOverlay.setAttribute("visible", false);
+      scaryOverlay.setAttribute("material", "opacity", 0);
     });
 
+    // Algemene fouten
     window.addEventListener("error", function (event) {
       status.textContent = "Fout: " + event.message;
     });
