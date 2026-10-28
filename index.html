@@ -3,63 +3,45 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  >
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
 
-  <title>Box of Memories</title>
+  <title>Box of Memories - AR</title>
 
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-
-  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
       overflow: hidden;
-      background: #000;
       font-family: Arial, sans-serif;
     }
 
     #status {
       position: fixed;
-      z-index: 9999;
       top: 12px;
       left: 12px;
-      right: 12px;
-      padding: 12px;
+      z-index: 100;
+      padding: 10px 14px;
       border-radius: 8px;
+      background: rgba(0, 0, 0, 0.8);
       color: white;
-      background: rgba(0, 0, 0, 0.75);
       font-size: 14px;
-      line-height: 1.4;
-      pointer-events: none;
-    }
-
-    #status.error {
-      background: rgba(150, 0, 0, 0.85);
+      max-width: 85%;
     }
   </style>
 </head>
 
 <body>
+  <div id="status">Verbinden met ntfy...</div>
 
-  <div id="status">Box of Memories wordt gestart...</div>
-
-  <!-- Afbeelding laden -->
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; colorManagement: true;"
+    renderer="alpha: true; colorManagement: true"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
-
     <a-assets>
       <img
         id="scary-image"
@@ -68,18 +50,15 @@
       >
     </a-assets>
 
-    <!-- Bestaande NFT-marker -->
     <a-nft
-      id="memory-marker"
+      id="foto-marker"
       type="nft"
       url="https://cael4s.github.io/box-of-memories/markers/karrekien800"
       smooth="true"
       smoothCount="10"
-      smoothTolerance=".01"
+      smoothTolerance="0.01"
       smoothThreshold="5"
     >
-
-      <!-- Bestaande positie en afmetingen behouden -->
       <a-plane
         id="scary-overlay"
         position="40 30 0"
@@ -96,114 +75,114 @@
           depthWrite: false;
         "
       ></a-plane>
-
     </a-nft>
 
     <a-entity camera></a-entity>
-
   </a-scene>
 
   <script>
     // ==========================================
-    // BOX OF MEMORIES - NTfy verbinding
+    // INSTELLINGEN
     // ==========================================
 
     const NTFY_TOPIC = "box-of-memories-urk123";
     const NTFY_URL =
-      "https://ntfy.sh/" + NTFY_TOPIC + "/json?since=now";
+      `https://ntfy.sh/${NTFY_TOPIC}/json?since=now`;
 
+    const marker = document.querySelector("#foto-marker");
     const overlay = document.querySelector("#scary-overlay");
-    const marker = document.querySelector("#memory-marker");
-    const statusBox = document.querySelector("#status");
+    const status = document.querySelector("#status");
 
-    let accepted = false;
-    let markerVisible = false;
+    const FADE_DURATION = 1200;
+
+    let plaagActief = false;
+    let markerZichtbaar = false;
     let animationToken = 0;
 
-    function setStatus(message, error = false) {
-      statusBox.textContent = message;
-      statusBox.classList.toggle("error", error);
+    function setStatus(tekst) {
+      status.textContent = tekst;
     }
 
     // ==========================================
-    // AFBEELDING IN- EN UITFADEN
+    // FADE-IN EN FADE-OUT
     // ==========================================
 
-    function fadeOverlay(show) {
-      if (!overlay) return;
-
+    function fadeNaar(doel) {
       const token = ++animationToken;
 
-      if (show) {
+      if (doel > 0) {
         overlay.setAttribute("visible", true);
       }
 
-      const material = overlay.getAttribute("material") || {};
-      const startOpacity = Number(material.opacity ?? 0);
-      const endOpacity = show ? 1 : 0;
-      const duration = 1200;
+      const material = overlay.getAttribute("material");
+      const begin = Number(material.opacity ?? 0);
       const startTime = performance.now();
 
       function animate(now) {
-        // Stop een eerdere animatie als een nieuw bericht komt.
         if (token !== animationToken) return;
 
-        const progress = Math.min(
-          (now - startTime) / duration,
+        const voortgang = Math.min(
+          (now - startTime) / FADE_DURATION,
           1
         );
 
-        // Soepele fade
-        const eased =
-          progress * progress * (3 - 2 * progress);
+        const soepel =
+          voortgang * voortgang * (3 - 2 * voortgang);
 
-        const opacity =
-          startOpacity +
-          (endOpacity - startOpacity) * eased;
+        const opacity = begin + (doel - begin) * soepel;
 
         overlay.setAttribute("material", "opacity", opacity);
 
-        if (progress < 1) {
+        if (voortgang < 1) {
           requestAnimationFrame(animate);
-        } else if (!show) {
-          overlay.setAttribute("visible", false);
+        } else {
+          overlay.setAttribute("material", "opacity", doel);
+
+          if (doel === 0) {
+            overlay.setAttribute("visible", false);
+          }
         }
       }
 
       requestAnimationFrame(animate);
     }
 
-    function updateOverlay() {
-      fadeOverlay(accepted && markerVisible);
+    function updateAR() {
+      if (plaagActief && markerZichtbaar) {
+        setStatus("ACCEPT — de plaag is begonnen");
+        fadeNaar(1);
+      } else {
+        fadeNaar(0);
+
+        if (plaagActief) {
+          setStatus("ACCEPT actief — zoek de marker");
+        } else {
+          setStatus("REMEMBER — afbeelding verborgen");
+        }
+      }
     }
 
     // ==========================================
-    // NFT-MARKER GEVONDEN OF VERLOREN
+    // MARKER HERKENNEN
     // ==========================================
 
     marker.addEventListener("markerFound", () => {
-      markerVisible = true;
-      setStatus(
-        accepted
-          ? "Marker gevonden — herinnering actief"
-          : "Marker gevonden — wacht op ACCEPT"
-      );
-      updateOverlay();
+      markerZichtbaar = true;
+      updateAR();
     });
 
     marker.addEventListener("markerLost", () => {
-      markerVisible = false;
-      setStatus("Marker niet zichtbaar");
-      updateOverlay();
+      markerZichtbaar = false;
+      updateAR();
     });
 
     // ==========================================
     // NTfy BERICHTEN ONTVANGEN
     // ==========================================
 
-    async function listenToNtfy() {
+    async function luisterNaarNtfy() {
       while (true) {
-        let reader;
+        let reader = null;
 
         try {
           setStatus("Verbinden met ntfy...");
@@ -213,98 +192,80 @@
           });
 
           if (!response.ok) {
-            throw new Error("ntfy HTTP " + response.status);
+            throw new Error("HTTP " + response.status);
           }
 
           if (!response.body) {
-            throw new Error("De browser ondersteunt deze stream niet.");
+            throw new Error("Geen stream beschikbaar");
           }
 
           reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
 
-          setStatus("Verbonden met ntfy — wacht op knoppen");
+          setStatus("Verbonden — wacht op ACCEPT of REMEMBER");
 
           while (true) {
-            const result = await reader.read();
+            const { value, done } = await reader.read();
 
-            if (result.done) break;
+            if (done) break;
 
-            buffer += decoder.decode(result.value, {
-              stream: true
-            });
+            buffer += decoder.decode(value, { stream: true });
 
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+            const regels = buffer.split("\n");
+            buffer = regels.pop() || "";
 
-            for (const line of lines) {
-              if (!line.trim()) continue;
+            for (const regel of regels) {
+              if (!regel.trim()) continue;
 
               let event;
 
               try {
-                event = JSON.parse(line);
+                event = JSON.parse(regel);
               } catch {
                 continue;
               }
 
               if (event.event !== "message") continue;
 
-              const message = String(event.message || "")
+              const bericht = String(event.message || "")
                 .trim()
                 .toUpperCase();
 
-              if (message === "ACCEPT") {
-                accepted = true;
-
-                setStatus(
-                  markerVisible
-                    ? "ACCEPT — herinnering verschijnt"
-                    : "ACCEPT ontvangen — zoek de marker"
-                );
-
-                updateOverlay();
-                console.log("ntfy: ACCEPT ontvangen");
+              if (bericht === "ACCEPT") {
+                plaagActief = true;
+                console.log("ACCEPT ontvangen");
+                updateAR();
               }
 
-              if (message === "REMEMBER") {
-                accepted = false;
-
-                setStatus("REMEMBER — herinnering verborgen");
-
-                updateOverlay();
-                console.log("ntfy: REMEMBER ontvangen");
+              if (bericht === "REMEMBER") {
+                plaagActief = false;
+                console.log("REMEMBER ontvangen");
+                updateAR();
               }
             }
           }
-
         } catch (error) {
-          console.error("ntfy-verbinding:", error);
-
-          setStatus(
-            "Verbinding verbroken — opnieuw proberen...",
-            true
-          );
-
+          console.error("ntfy-fout:", error);
+          setStatus("ntfy tijdelijk niet bereikbaar; opnieuw proberen...");
         } finally {
           if (reader) {
             try {
               await reader.cancel();
-            } catch (_) {
-              // De verbinding kan al gesloten zijn.
-            }
+            } catch (_) {}
           }
         }
 
-        // Opnieuw verbinden na een onderbreking.
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
-    // Start luisteren naar ntfy.
-    listenToNtfy();
-  </script>
+    // Afbeelding bij de start verbergen.
+    overlay.setAttribute("visible", false);
+    overlay.setAttribute("material", "opacity", 0);
 
+    // Begin met luisteren.
+    luisterNaarNtfy();
+  </script>
 </body>
 </html>
