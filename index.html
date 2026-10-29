@@ -197,16 +197,16 @@
         currentMode = "ACCEPT";
 
         fadeNaar(1, 800);
-        setStatus("Accept — creating something new");
+        setStatus("Accept");
 
         showMessageAfterDelay(
-          "... I take the new and make something out of it"
+          "... I embrace the new"
         );
       } else if (action === "REMEMBER") {
         currentMode = "REMEMBER";
 
         fadeNaar(0, 800);
-        setStatus("Remember — holding on to what once was");
+        setStatus("Remember");
 
         showMessageAfterDelay(
           "... I hold on to what once was"
@@ -221,7 +221,7 @@
     ntfy.onopen = () => {
       setStatus(
         currentMode === "REMEMBER"
-          ? "Remember — holding on to what once was"
+          ? "Remember"
           : "Connected — waiting for buttons"
       );
 
@@ -245,7 +245,7 @@
     // Marker tracking status.
     marker.addEventListener("markerFound", () => {
       if (currentMode === "REMEMBER") {
-        setStatus("Remember — holding on to what once was");
+        setStatus("Remember");
       } else {
         setStatus("Marker recognized");
       }
@@ -260,7 +260,7 @@
     overlay.setAttribute("visible", false);
     overlay.setAttribute("material", "opacity", 0);
     currentMode = "REMEMBER";
-    setStatus("Remember — holding on to what once was");
+    setStatus("Remember");
   </script>
 </body>
 </html>
