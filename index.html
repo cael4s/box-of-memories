@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,29 +6,16 @@
 
   <title>Box of Memories</title>
 
-  <!-- Serif font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap"
-    rel="stylesheet"
-  >
-
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-
-  <!-- AR.js NFT tracking -->
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
 
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #000;
       font-family: Arial, sans-serif;
     }
 
@@ -38,14 +24,13 @@
       top: 12px;
       left: 12px;
       right: 12px;
-      z-index: 3000;
+      z-index: 1000;
       padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.75);
       color: white;
-      background: rgba(0, 0, 0, 0.65);
-      border-radius: 4px;
-      font-size: 13px;
+      font-size: 14px;
       text-align: center;
-      pointer-events: none;
     }
 
     #message-overlay {
@@ -60,11 +45,9 @@
       background: rgba(0, 0, 0, 0.78);
       color: white;
       text-align: center;
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: clamp(20px, 4.5vw, 38px);
-      line-height: 1.4;
-      font-weight: 400;
-      letter-spacing: 0.02em;
+      font-size: clamp(28px, 7vw, 56px);
+      line-height: 1.35;
+      font-weight: bold;
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.4s ease;
@@ -75,28 +58,21 @@
       opacity: 1;
       visibility: visible;
     }
-
-    a-scene {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-    }
   </style>
 </head>
 
 <body>
   <div id="status">Starting AR...</div>
-
-  <div id="message-overlay"></div>
+  <div id="message-overlay" aria-live="polite"></div>
 
   <a-scene
     embedded
     vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true; alpha: true"
+    renderer="logarithmicDepthBuffer: true;"
     arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
     <a-assets>
+      <!-- Original image shown as the AR overlay -->
       <img
         id="scary-texture"
         src="https://cael4s.github.io/box-of-memories/images/karrekienscary800.jpg"
@@ -104,6 +80,7 @@
       >
     </a-assets>
 
+    <!-- New NFT marker used only for recognition -->
     <a-nft
       id="foto-marker"
       type="nft"
@@ -135,119 +112,122 @@
   </a-scene>
 
   <script>
-    const statusElement = document.getElementById("status");
-    const messageOverlay = document.getElementById("message-overlay");
-    const scaryOverlay = document.getElementById("scary-overlay");
+    // Must match the topic used by box_of_memories.py
+    const NTFY_TOPIC = "box-of-memories-urk123";
 
-    let currentMode = "REMEMBER";
+    const statusElement = document.getElementById("status");
+    const overlay = document.getElementById("scary-overlay");
+    const marker = document.getElementById("foto-marker");
+    const messageOverlay = document.getElementById("message-overlay");
+
+    let fadeAnimation = null;
     let messageTimer = null;
-    let fadeTimer = null;
+    let messageDelayTimer = null;
+
+    // The experience starts in REMEMBER mode.
+    let currentMode = "REMEMBER";
 
     function setStatus(message) {
       statusElement.textContent = message;
     }
 
-    function showMessage(message) {
-      if (messageTimer) {
-        clearTimeout(messageTimer);
+    function fadeNaar(targetOpacity, duration = 800) {
+      if (!overlay) return;
+
+      if (fadeAnimation) {
+        fadeAnimation.cancel();
+        fadeAnimation = null;
       }
 
-      messageOverlay.textContent = message;
-      messageOverlay.classList.add("visible");
+      const currentOpacity =
+        Number(overlay.getAttribute("material").opacity) || 0;
 
-      messageTimer = setTimeout(() => {
-        messageOverlay.classList.remove("visible");
+      overlay.setAttribute("visible", true);
+
+      fadeAnimation = overlay.animate(
+        [
+          { opacity: currentOpacity },
+          { opacity: targetOpacity }
+        ],
+        {
+          duration: duration,
+          easing: "ease-in-out",
+          fill: "forwards"
+        }
+      );
+
+      fadeAnimation.onfinish = () => {
+        overlay.setAttribute("material", "opacity", targetOpacity);
+
+        if (targetOpacity === 0) {
+          overlay.setAttribute("visible", false);
+        }
+
+        fadeAnimation = null;
+      };
+    }
+
+    // Wait 3 seconds, show the message for 3 seconds, then hide it.
+    function showMessageAfterDelay(message) {
+      clearTimeout(messageDelayTimer);
+      clearTimeout(messageTimer);
+
+      messageOverlay.classList.remove("visible");
+      messageOverlay.textContent = "";
+
+      messageDelayTimer = setTimeout(() => {
+        messageOverlay.textContent = message;
+        messageOverlay.classList.add("visible");
+
+        messageTimer = setTimeout(() => {
+          messageOverlay.classList.remove("visible");
+        }, 3000);
       }, 3000);
     }
 
-    function setImageOpacity(opacity) {
-      scaryOverlay.setAttribute(
-        "material",
-        "opacity",
-        opacity
-      );
-
-      scaryOverlay.setAttribute("visible", opacity > 0);
-    }
-
-    function fadeImage(targetOpacity, duration = 1000) {
-      if (fadeTimer) {
-        clearInterval(fadeTimer);
-      }
-
-      const startOpacity = Number(
-        scaryOverlay.getAttribute("material").opacity || 0
-      );
-
-      const startTime = performance.now();
-
-      scaryOverlay.setAttribute("visible", true);
-
-      fadeTimer = setInterval(() => {
-        const elapsed = performance.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        const opacity =
-          startOpacity + (targetOpacity - startOpacity) * progress;
-
-        setImageOpacity(opacity);
-
-        if (progress >= 1) {
-          clearInterval(fadeTimer);
-          fadeTimer = null;
-
-          if (targetOpacity === 0) {
-            scaryOverlay.setAttribute("visible", false);
-          }
-        }
-      }, 30);
-    }
-
     function processMessage(data) {
-      let command = "";
+      const action = String(data.message || "")
+        .trim()
+        .toUpperCase();
 
-      if (typeof data === "string") {
-        command = data;
-      } else if (data && data.message) {
-        command = data.message;
-      }
+      console.log("ntfy message received:", action);
 
-      command = command.trim().toUpperCase();
-
-      console.log("Received message:", command);
-
-      if (command.includes("ACCEPT")) {
+      if (action === "ACCEPT") {
         currentMode = "ACCEPT";
 
-        fadeImage(1, 1000);
+        fadeNaar(1, 800);
+        setStatus("Accept");
 
-        setTimeout(() => {
-          showMessage("... I embrace the new");
-        }, 3000);
-
-      } else if (command.includes("REMEMBER")) {
+        showMessageAfterDelay(
+          "... I embrace the new"
+        );
+      } else if (action === "REMEMBER") {
         currentMode = "REMEMBER";
 
-        fadeImage(0, 1000);
+        fadeNaar(0, 800);
+        setStatus("Remember");
 
-        setTimeout(() => {
-          showMessage("... I hold on to what once was");
-        }, 3000);
+        showMessageAfterDelay(
+          "... I hold on to what once was"
+        );
       }
     }
 
-    // Listen for messages from the physical buttons via ntfy.
-    const ntfyUrl =
-      "https://ntfy.sh/box-of-memories-urk123/sse";
+    // Connect to ntfy to receive messages from the Python script.
+    const ntfyUrl = `https://ntfy.sh/${NTFY_TOPIC}/sse`;
+    const ntfy = new EventSource(ntfyUrl);
 
-    const eventSource = new EventSource(ntfyUrl);
+    ntfy.onopen = () => {
+      setStatus(
+        currentMode === "REMEMBER"
+          ? "Remember"
+          : "Connected — waiting for buttons"
+      );
 
-    eventSource.onopen = () => {
-      setStatus("Connected — point camera at the marker");
       console.log("Connected to ntfy");
     };
 
-    eventSource.onmessage = (event) => {
+    ntfy.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         processMessage(data);
@@ -256,37 +236,30 @@
       }
     };
 
-    eventSource.onerror = (error) => {
+    ntfy.onerror = (error) => {
+      setStatus("Reconnecting to ntfy...");
       console.error("ntfy connection error:", error);
-      setStatus("Connecting to buttons...");
     };
 
-    // AR and camera status updates.
-    const scene = document.querySelector("a-scene");
-
-    scene.addEventListener("loaded", () => {
-      setStatus("AR scene loaded — starting camera...");
+    // Marker tracking status.
+    marker.addEventListener("markerFound", () => {
+      if (currentMode === "REMEMBER") {
+        setStatus("Remember");
+      } else {
+        setStatus("Marker recognized");
+      }
     });
 
-    window.addEventListener("camera-init", () => {
-      setStatus("Camera ready — loading image marker...");
+    marker.addEventListener("markerLost", () => {
+      setStatus("Point the camera at the image");
     });
 
-    window.addEventListener("camera-error", () => {
-      setStatus("Camera error — check camera permissions");
-    });
-
-    window.addEventListener("arjs-nft-loaded", () => {
-      setStatus("Marker loaded — point camera at image");
-    });
-
-    window.addEventListener("error", (event) => {
-      console.error("JavaScript error:", event.message);
-      setStatus("Error loading AR — check browser console");
-    });
-
-    // Start with the image hidden.
-    setImageOpacity(0);
+    // Initial state: REMEMBER.
+    // The overlay image starts hidden.
+    overlay.setAttribute("visible", false);
+    overlay.setAttribute("material", "opacity", 0);
+    currentMode = "REMEMBER";
+    setStatus("Remember");
   </script>
 </body>
 </html>
